@@ -1,0 +1,13 @@
+[package]
+name = "media-gateway-client"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+savant_core = { workspace = true }
