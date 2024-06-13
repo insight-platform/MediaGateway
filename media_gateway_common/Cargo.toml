@@ -1,5 +1,5 @@
 [package]
-name = "media_gateway_server"
+name = "media_gateway_common"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -11,13 +11,5 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-actix-web = { version = "4", features = ["openssl"] }
-openssl = "0.10"
-env_logger = "0.11"
-media_gateway_common = { path = "../media_gateway_common" }
-
 savant_core = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
-anyhow = { workspace = true }
-twelf = { workspace = true }
