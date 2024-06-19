@@ -1,4 +1,5 @@
 use std::sync::Mutex;
+use actix_protobuf::ProtoBuf;
 
 use actix_web::{post, web, Responder};
 
@@ -9,8 +10,8 @@ use crate::server::service::GatewayService;
 #[post("/")]
 async fn gateway(
     service: web::Data<Mutex<GatewayService>>,
-    query: web::Json<Media>,
+    media: ProtoBuf<Media>
 ) -> impl Responder {
     let mut gateway_service = service.lock().unwrap();
-    gateway_service.process(query)
+    gateway_service.process(media)
 }

@@ -1,39 +1,27 @@
-use savant_core::message::Message;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde::ser::SerializeStruct;
+use savant_protobuf::generated::Message;
 
-#[derive(Debug)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Media {
-    pub message: Box<Message>,
-    pub topic: Vec<u8>,
-    pub data: Vec<Vec<u8>>,
+    #[prost(message, optional, tag = "1")]
+    pub message: ::core::option::Option<Message>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub topic: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", repeated, tag = "3")]
+    pub data: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
 }
 
-impl Serialize for Media {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-    {
-        let mut result = serializer.serialize_struct("Media", 3)?;
-        // TODO: implement serialization
-        result.serialize_field("message", "message");
-        result.serialize_field("topic",  std::str::from_utf8(&self.topic).unwrap())?;
-        result.serialize_field("data", &self.data)?;
-        result.end()
+impl Media {
+    pub fn to_proto(&self) -> anyhow::Result<Vec<u8>> {
+        use prost::Message as ProstMessage;
+        let mut buf = Vec::new();
+        self.encode(&mut buf)?;
+        Ok(buf)
     }
-}
 
-impl<'de> Deserialize<'de> for Media {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
-    {
-        //TODO: implement deserialization
-        let media = Media {
-            message: Box::new(Message::unknown(String::from("message"))),
-            topic: "topic".as_bytes().to_vec(),
-            data: vec![],
-        };
+    pub fn from_proto(bytes: &[u8]) -> anyhow::Result<Self> {
+        use prost::Message as ProstMessage;
+        let media = Media::decode(bytes)?;
         Ok(media)
     }
 }

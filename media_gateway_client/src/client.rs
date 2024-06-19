@@ -32,14 +32,14 @@ impl GatewayClient {
         match reader_result {
             ReaderResult::Message { message, topic, data, .. } => {
                 let media = Media {
-                    message,
+                    message: Option::from(savant_protobuf::generated::Message::from(message.as_ref())),
                     topic,
                     data,
                 };
-                let data = serde_json::to_string(&media)?;
+                let data = media.to_proto()?;
                 let send_result = self.client.post(&self.url)
                     .body(data)
-                    .header(CONTENT_TYPE, "application/json")
+                    .header(CONTENT_TYPE, "application/protobuf")
                     .send()
                     .await;
                 match send_result {

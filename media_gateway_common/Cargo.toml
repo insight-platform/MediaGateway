@@ -12,4 +12,11 @@ rust-version.workspace = true
 
 [dependencies]
 savant_core = { workspace = true }
-serde = { workspace = true }
+savant-protobuf = { workspace = true }
+anyhow = { workspace = true }
+
+prost = "0.12"
+prost-types = "0.12"
+
+[build-dependencies]
+prost-build = "0.12"

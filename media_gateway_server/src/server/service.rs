@@ -1,4 +1,6 @@
-use actix_web::{HttpResponse, Responder, web};
+use actix_protobuf::ProtoBuf;
+use actix_web::{HttpResponse, Responder};
+use savant_core::message::Message;
 use savant_core::transport::zeromq::{SyncWriter, WriterResult};
 use twelf::reexports::log;
 use twelf::reexports::log::error;
@@ -18,18 +20,27 @@ impl GatewayService {
     pub fn new(writer: SyncWriter) -> Self {
         Self { writer }
     }
-    pub fn process(&mut self, media: web::Json<Media>) -> impl Responder {
+    pub fn process(&mut self, media: ProtoBuf<Media>) -> impl Responder {
         let topic_result = std::str::from_utf8(&media.topic);
         if topic_result.is_err() {
             return HttpResponse::BadRequest().finish();
         }
         let topic = topic_result.unwrap();
 
+        if media.message.is_none() {
+            return HttpResponse::BadRequest().finish();
+        }
+        let message_result = Message::try_from(media.message.as_ref().unwrap());
+        if message_result.is_err() {
+            return HttpResponse::BadRequest().finish();
+        }
+        let message = message_result.unwrap();
+
         log::debug!(
             target: LOG_ENTRY,
             "Received message: topic: {}, message: {:?}, data: len={}",
             topic,
-            media.message,
+            message,
             media.data.len()
         );
 
@@ -39,7 +50,7 @@ impl GatewayService {
             .map(|v| v.as_slice())
             .collect::<Vec<&[u8]>>();
 
-        let result = self.writer.send_message(&topic, &media.message, &data);
+        let result = self.writer.send_message(&topic, &message, &data);
         match result {
             Ok(WriterResult::SendTimeout) => HttpResponse::GatewayTimeout().finish(),
             Ok(WriterResult::AckTimeout(_)) => HttpResponse::BadGateway().finish(),
