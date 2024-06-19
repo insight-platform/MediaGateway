@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use savant_core::transport::zeromq::{Reader, ReaderConfig, ReaderConfigBuilder, SyncReader};
+use savant_core::transport::zeromq::{ReaderConfigBuilder, SyncReader};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
 
