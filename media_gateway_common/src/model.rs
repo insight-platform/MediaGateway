@@ -25,3 +25,32 @@ impl Media {
         Ok(media)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use savant_protobuf::generated::{Message, Unknown};
+    use savant_protobuf::generated::message::Content;
+
+    use crate::model::Media;
+
+    #[test]
+    fn to_from_proto() {
+        let message = Message {
+            protocol_version: "protocol_version".to_string(),
+            routing_labels: vec!["label1".to_string(), "label2".to_string()],
+            propagated_context: HashMap::from([("key".to_string(), "value".to_string())]),
+            seq_id: 100,
+            content: Option::from(Content::Unknown(Unknown { message: "message".to_string() })),
+        };
+        let original_media = Media {
+            message: Option::from(message),
+            topic: "topic".as_bytes().to_vec(),
+            data: vec![vec![1]],
+        };
+        let bytes = original_media.to_proto().expect("to_proto failed");
+        let result_media = Media::from_proto(&bytes).expect("from_proto failed");
+        assert_eq!(original_media, result_media);
+    }
+}

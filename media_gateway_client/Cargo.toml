@@ -21,3 +21,8 @@ twelf = { workspace = true }
 media_gateway_common = { path = "../media_gateway_common" }
 
 reqwest = {version = "0.12.5"}
+
+[dev-dependencies]
+rand = "0.8.5"
+wiremock = "0.6.0"
+tokio = { version = "1", features = ["test-util"]}
