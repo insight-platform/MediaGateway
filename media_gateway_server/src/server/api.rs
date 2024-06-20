@@ -12,6 +12,6 @@ async fn gateway(
     service: web::Data<Mutex<GatewayService>>,
     media: ProtoBuf<Media>
 ) -> impl Responder {
-    let mut gateway_service = service.lock().unwrap();
+    let gateway_service = service.lock().unwrap();
     gateway_service.process(media)
 }

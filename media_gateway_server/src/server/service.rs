@@ -1,5 +1,5 @@
 use actix_protobuf::ProtoBuf;
-use actix_web::{HttpResponse, Responder};
+use actix_web::HttpResponse;
 use savant_core::message::Message;
 use savant_core::transport::zeromq::{SyncWriter, WriterResult};
 use twelf::reexports::log;
@@ -20,7 +20,7 @@ impl GatewayService {
     pub fn new(writer: SyncWriter) -> Self {
         Self { writer }
     }
-    pub fn process(&mut self, media: ProtoBuf<Media>) -> impl Responder {
+    pub fn process(&self, media: ProtoBuf<Media>) -> HttpResponse {
         let topic_result = std::str::from_utf8(&media.topic);
         if topic_result.is_err() {
             return HttpResponse::BadRequest().finish();
