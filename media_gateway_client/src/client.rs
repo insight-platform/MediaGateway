@@ -55,6 +55,10 @@ impl GatewayClient {
             _ => Ok(ReadError(reader_result))
         }
     }
+
+    pub fn shutdown(&self) -> anyhow::Result<()> {
+        self.reader.shutdown()
+    }
 }
 
 impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
