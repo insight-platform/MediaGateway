@@ -1,7 +1,7 @@
 use std::env::args;
 use std::sync::Mutex;
 
-use actix_web::{App, HttpServer, web};
+use actix_web::{web, App, HttpServer};
 use anyhow::{anyhow, Result};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use twelf::reexports::log::info;

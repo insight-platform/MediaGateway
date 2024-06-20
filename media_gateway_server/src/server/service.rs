@@ -86,7 +86,9 @@ mod tests {
     use actix_web::http::StatusCode;
     use rand::Rng;
     use savant_core::message::Message;
-    use savant_core::transport::zeromq::{ReaderConfigBuilder, ReaderResult, SyncReader, SyncWriter, WriterConfigBuilder};
+    use savant_core::transport::zeromq::{
+        ReaderConfigBuilder, ReaderResult, SyncReader, SyncWriter, WriterConfigBuilder,
+    };
 
     use media_gateway_common::model::Media;
 
@@ -176,21 +178,27 @@ mod tests {
     }
 
     fn new_service_with_url(url: &str) -> GatewayService {
-        let writer = SyncWriter::new(&WriterConfigBuilder::default()
-            .url(url).unwrap()
-            .build().unwrap())
-            .unwrap();
+        let writer = SyncWriter::new(
+            &WriterConfigBuilder::default()
+                .url(url)
+                .unwrap()
+                .build()
+                .unwrap(),
+        )
+        .unwrap();
         writer.is_started();
-        GatewayService {
-            writer
-        }
+        GatewayService { writer }
     }
 
     fn new_reader(url: &str) -> SyncReader {
-        let reader = SyncReader::new(&ReaderConfigBuilder::default()
-            .url(url).unwrap()
-            .build().unwrap())
-            .unwrap();
+        let reader = SyncReader::new(
+            &ReaderConfigBuilder::default()
+                .url(url)
+                .unwrap()
+                .build()
+                .unwrap(),
+        )
+        .unwrap();
         reader.is_started();
         reader
     }
@@ -200,7 +208,10 @@ mod tests {
     }
 
     fn new_tcp() -> String {
-        format!("tcp://127.0.0.1:{}", rand::thread_rng().gen_range(40000..50000))
+        format!(
+            "tcp://127.0.0.1:{}",
+            rand::thread_rng().gen_range(40000..50000)
+        )
     }
 
     fn new_message() -> Message {
@@ -217,18 +228,37 @@ mod tests {
         (message, media)
     }
 
-    fn check_reader_result_message(reader_result: &anyhow::Result<ReaderResult>, message: &Message, topic: &Vec<u8>, data: &Vec<Vec<u8>>) {
+    fn check_reader_result_message(
+        reader_result: &anyhow::Result<ReaderResult>,
+        message: &Message,
+        topic: &Vec<u8>,
+        data: &Vec<Vec<u8>>,
+    ) {
         match reader_result {
-            Ok(ReaderResult::Message { message: reader_message, topic: reader_topic, data: reader_data, .. }) => {
+            Ok(ReaderResult::Message {
+                message: reader_message,
+                topic: reader_topic,
+                data: reader_data,
+                ..
+            }) => {
                 assert_eq!(message.meta().seq_id, reader_message.meta().seq_id);
-                assert_eq!(message.meta().routing_labels, reader_message.meta().routing_labels);
-                assert_eq!(message.meta().protocol_version, reader_message.meta().protocol_version);
-                assert_eq!(message.meta().span_context.0, reader_message.meta().span_context.0);
+                assert_eq!(
+                    message.meta().routing_labels,
+                    reader_message.meta().routing_labels
+                );
+                assert_eq!(
+                    message.meta().protocol_version,
+                    reader_message.meta().protocol_version
+                );
+                assert_eq!(
+                    message.meta().span_context.0,
+                    reader_message.meta().span_context.0
+                );
                 assert_eq!(message.as_unknown(), reader_message.as_unknown());
                 assert_eq!(topic, reader_topic);
                 assert_eq!(data, reader_data);
             }
-            _ => panic!("Unexpected reader result: {:?}", reader_result)
+            _ => panic!("Unexpected reader result: {:?}", reader_result),
         };
     }
 }

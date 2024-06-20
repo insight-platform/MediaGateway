@@ -21,9 +21,7 @@ impl GatewayClientConfiguration {
 impl TryFrom<&SourceConfiguration> for SyncReader {
     type Error = anyhow::Error;
 
-    fn try_from(
-        source_conf: &SourceConfiguration,
-    ) -> Result<SyncReader, Self::Error> {
+    fn try_from(source_conf: &SourceConfiguration) -> Result<SyncReader, Self::Error> {
         let conf = ReaderConfigBuilder::default()
             .url(&source_conf.url)?
             .with_receive_timeout(source_conf.receive_timeout.as_millis() as i32)?

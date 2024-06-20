@@ -30,8 +30,8 @@ impl Media {
 mod tests {
     use std::collections::HashMap;
 
-    use savant_protobuf::generated::{Message, Unknown};
     use savant_protobuf::generated::message::Content;
+    use savant_protobuf::generated::{Message, Unknown};
 
     use crate::model::Media;
 
@@ -42,7 +42,9 @@ mod tests {
             routing_labels: vec!["label1".to_string(), "label2".to_string()],
             propagated_context: HashMap::from([("key".to_string(), "value".to_string())]),
             seq_id: 100,
-            content: Option::from(Content::Unknown(Unknown { message: "message".to_string() })),
+            content: Option::from(Content::Unknown(Unknown {
+                message: "message".to_string(),
+            })),
         };
         let original_media = Media {
             message: Option::from(message),

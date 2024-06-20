@@ -1,6 +1,6 @@
 use anyhow::anyhow;
-use reqwest::{Client, StatusCode};
 use reqwest::header::CONTENT_TYPE;
+use reqwest::{Client, StatusCode};
 use savant_core::transport::zeromq::{ReaderResult, SyncReader};
 
 use media_gateway_common::model::Media;
@@ -24,20 +24,33 @@ pub struct GatewayClient {
 
 impl GatewayClient {
     pub fn new(reader: SyncReader, client: Client, url: String) -> Self {
-        Self { reader, client, url }
+        Self {
+            reader,
+            client,
+            url,
+        }
     }
 
     pub async fn forward_message(&self) -> anyhow::Result<ForwardResult> {
         let reader_result = self.reader.receive()?;
         match reader_result {
-            ReaderResult::Message { message, topic, data, .. } => {
+            ReaderResult::Message {
+                message,
+                topic,
+                data,
+                ..
+            } => {
                 let media = Media {
-                    message: Option::from(savant_protobuf::generated::Message::from(message.as_ref())),
+                    message: Option::from(savant_protobuf::generated::Message::from(
+                        message.as_ref(),
+                    )),
                     topic,
                     data,
                 };
                 let data = media.to_proto()?;
-                let send_result = self.client.post(&self.url)
+                let send_result = self
+                    .client
+                    .post(&self.url)
                     .body(data)
                     .header(CONTENT_TYPE, "application/protobuf")
                     .send()
@@ -47,12 +60,12 @@ impl GatewayClient {
                         StatusCode::OK => Ok(ForwardResult::Success),
                         StatusCode::GATEWAY_TIMEOUT => Ok(ForwardResult::SendTimeout),
                         StatusCode::BAD_GATEWAY => Ok(ForwardResult::AckTimeout),
-                        status_code => Err(anyhow!("Invalid HTTP status: {}", status_code))
-                    }
-                    Err(e) => Err(anyhow!("Error while sending a message").context(e.to_string()))
+                        status_code => Err(anyhow!("Invalid HTTP status: {}", status_code)),
+                    },
+                    Err(e) => Err(anyhow!("Error while sending a message").context(e.to_string())),
                 }
             }
-            _ => Ok(ReadError(reader_result))
+            _ => Ok(ReadError(reader_result)),
         }
     }
 
@@ -67,7 +80,11 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
     fn try_from(configuration: &GatewayClientConfiguration) -> anyhow::Result<Self> {
         let reader = SyncReader::try_from(&configuration.in_stream)?;
         let client = Client::default();
-        Ok(GatewayClient::new(reader, client, configuration.url.clone()))
+        Ok(GatewayClient::new(
+            reader,
+            client,
+            configuration.url.clone(),
+        ))
     }
 }
 
@@ -77,9 +94,12 @@ mod tests {
     use rand::Rng;
     use reqwest::{Client, StatusCode};
     use savant_core::message::Message;
-    use savant_core::transport::zeromq::{ReaderConfigBuilder, ReaderResult, SyncReader, SyncWriter, WriterConfigBuilder, WriterResult};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use savant_core::transport::zeromq::{
+        ReaderConfigBuilder, ReaderResult, SyncReader, SyncWriter, WriterConfigBuilder,
+        WriterResult,
+    };
     use wiremock::matchers::{body_bytes, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use media_gateway_common::model::Media;
 
@@ -92,7 +112,11 @@ mod tests {
 
     #[tokio::test]
     async fn forward_message_send_timeout() {
-        forward_test(Some(StatusCode::GATEWAY_TIMEOUT), Ok(ForwardResult::SendTimeout)).await
+        forward_test(
+            Some(StatusCode::GATEWAY_TIMEOUT),
+            Ok(ForwardResult::SendTimeout),
+        )
+        .await
     }
 
     #[tokio::test]
@@ -103,7 +127,11 @@ mod tests {
     #[tokio::test]
     async fn forward_message_invalid_http_status() {
         let http_status = StatusCode::BAD_REQUEST;
-        forward_test(Some(http_status), Err(anyhow!("Invalid HTTP status: {}", http_status))).await
+        forward_test(
+            Some(http_status),
+            Err(anyhow!("Invalid HTTP status: {}", http_status)),
+        )
+        .await
     }
 
     #[tokio::test]
@@ -114,27 +142,38 @@ mod tests {
     #[tokio::test]
     async fn forward_message_read_error() {
         let ipc = format!("ipc:///tmp/test{}", rand::random::<u16>());
-        let reader = SyncReader::new(&ReaderConfigBuilder::default()
-            .url(format!("sub+connect:{}", ipc).as_str()).unwrap()
-            .build().unwrap())
-            .unwrap();
+        let reader = SyncReader::new(
+            &ReaderConfigBuilder::default()
+                .url(format!("sub+connect:{}", ipc).as_str())
+                .unwrap()
+                .build()
+                .unwrap(),
+        )
+        .unwrap();
 
-        let gateway_url = format!("http://127.0.0.1:{}/", rand::thread_rng().gen_range(40000..50000));
+        let gateway_url = format!(
+            "http://127.0.0.1:{}/",
+            rand::thread_rng().gen_range(40000..50000)
+        );
         let client = GatewayClient::new(reader, Client::default(), gateway_url);
         let actual_result = client.forward_message().await;
-        assert!(matches!(actual_result, Ok(ForwardResult::ReadError(ReaderResult::Timeout))));
+        assert!(matches!(
+            actual_result,
+            Ok(ForwardResult::ReadError(ReaderResult::Timeout))
+        ));
     }
 
-    async fn forward_test(http_status: Option<StatusCode>, expected_result: anyhow::Result<ForwardResult>) {
+    async fn forward_test(
+        http_status: Option<StatusCode>,
+        expected_result: anyhow::Result<ForwardResult>,
+    ) {
         let message = Message::unknown("message".to_string());
         let topic = "topic";
         let data: Vec<&[u8]> = vec![&[1]];
         let media = Media {
             message: Option::from(savant_protobuf::generated::Message::from(&message)),
             topic: topic.as_bytes().to_vec(),
-            data: data.iter()
-                .map(|e| e.to_vec())
-                .collect::<Vec<Vec<u8>>>(),
+            data: data.iter().map(|e| e.to_vec()).collect::<Vec<Vec<u8>>>(),
         };
 
         let gateway_path = "/";
@@ -142,30 +181,46 @@ mod tests {
             let server = MockServer::start().await;
             Mock::given(method("POST"))
                 .and(path(gateway_path))
-                .and(body_bytes(media.to_proto().expect("http mock body setup failed")))
+                .and(body_bytes(
+                    media.to_proto().expect("http mock body setup failed"),
+                ))
                 .respond_with(ResponseTemplate::new(status))
                 .mount(&server)
                 .await;
             server.uri() + gateway_path
         } else {
-            format!("http://127.0.0.1:{}{}", rand::thread_rng().gen_range(40000..50000), gateway_path)
+            format!(
+                "http://127.0.0.1:{}{}",
+                rand::thread_rng().gen_range(40000..50000),
+                gateway_path
+            )
         };
 
         let ipc = format!("ipc:///tmp/test{}", rand::random::<u16>());
-        let writer = SyncWriter::new(&WriterConfigBuilder::default()
-            .url(format!("pub+bind:{}", ipc).as_str()).unwrap()
-            .build().unwrap())
-            .unwrap();
+        let writer = SyncWriter::new(
+            &WriterConfigBuilder::default()
+                .url(format!("pub+bind:{}", ipc).as_str())
+                .unwrap()
+                .build()
+                .unwrap(),
+        )
+        .unwrap();
 
-        let reader = SyncReader::new(&ReaderConfigBuilder::default()
-            .url(format!("sub+connect:{}", ipc).as_str()).unwrap()
-            .build().unwrap())
-            .unwrap();
+        let reader = SyncReader::new(
+            &ReaderConfigBuilder::default()
+                .url(format!("sub+connect:{}", ipc).as_str())
+                .unwrap()
+                .build()
+                .unwrap(),
+        )
+        .unwrap();
 
         let client = GatewayClient::new(reader, Client::default(), gateway_url);
 
-        let write_result = writer.send_message(topic, &message, &data).expect("writing failed");
-        assert!(matches!(write_result,  WriterResult::Success {..}));
+        let write_result = writer
+            .send_message(topic, &message, &data)
+            .expect("writing failed");
+        assert!(matches!(write_result, WriterResult::Success { .. }));
 
         let actual_result = client.forward_message().await;
 
@@ -176,68 +231,80 @@ mod tests {
             Ok(expected_forward_result) => {
                 assert!(actual_result.is_ok());
                 match actual_result.unwrap() {
-                    ForwardResult::Success => assert!(matches!(expected_forward_result, ForwardResult::Success)),
-                    ForwardResult::SendTimeout => assert!(matches!(expected_forward_result, ForwardResult::SendTimeout)),
-                    ForwardResult::AckTimeout => assert!(matches!(expected_forward_result, ForwardResult::AckTimeout)),
-                    ForwardResult::ReadError(reader_result) =>
-                        if let ForwardResult::ReadError(expected_read_error) = expected_forward_result {
+                    ForwardResult::Success => {
+                        assert!(matches!(expected_forward_result, ForwardResult::Success))
+                    }
+                    ForwardResult::SendTimeout => assert!(matches!(
+                        expected_forward_result,
+                        ForwardResult::SendTimeout
+                    )),
+                    ForwardResult::AckTimeout => {
+                        assert!(matches!(expected_forward_result, ForwardResult::AckTimeout))
+                    }
+                    ForwardResult::ReadError(reader_result) => {
+                        if let ForwardResult::ReadError(expected_read_error) =
+                            expected_forward_result
+                        {
                             match reader_result {
                                 ReaderResult::Message { .. } => panic!(
                                     "Expected: {:?} but got ReaderResult::Message{{..}}",
                                     expected_read_error
                                 ),
-                                ReaderResult::Timeout => assert!(
-                                    matches!(
-                                        expected_read_error,
-                                        ReaderResult::Timeout
-                                    )
-                                ),
+                                ReaderResult::Timeout => {
+                                    assert!(matches!(expected_read_error, ReaderResult::Timeout))
+                                }
                                 ReaderResult::PrefixMismatch { topic, routing_id } => {
                                     let actual_topic = topic;
                                     let actual_routing_id = routing_id;
-                                    assert!(
-                                        matches!(
-                                            expected_read_error,
-                                            ReaderResult::PrefixMismatch {topic, routing_id}
-                                                if topic == actual_topic
-                                                    && routing_id == actual_routing_id
-                                        )
-                                    )
+                                    assert!(matches!(
+                                        expected_read_error,
+                                        ReaderResult::PrefixMismatch {topic, routing_id}
+                                            if topic == actual_topic
+                                                && routing_id == actual_routing_id
+                                    ))
                                 }
                                 ReaderResult::RoutingIdMismatch { topic, routing_id } => {
                                     let actual_topic = topic;
                                     let actual_routing_id = routing_id;
-                                    assert!(
-                                        matches!(
-                                            expected_read_error,
-                                            ReaderResult::RoutingIdMismatch {topic, routing_id}
-                                                if topic == actual_topic
-                                                    && routing_id == actual_routing_id
-                                        )
-                                    )
+                                    assert!(matches!(
+                                        expected_read_error,
+                                        ReaderResult::RoutingIdMismatch {topic, routing_id}
+                                            if topic == actual_topic
+                                                && routing_id == actual_routing_id
+                                    ))
                                 }
-                                ReaderResult::TooShort(x) => assert!(
-                                    matches!(
-                                        expected_read_error,
-                                        ReaderResult::TooShort(y) if x == y
-                                    )
-                                ),
-                                ReaderResult::Blacklisted(x) => assert!(
-                                    matches!(
-                                        expected_read_error,
-                                        ReaderResult::Blacklisted(y) if x == y
-                                    )
-                                )
+                                ReaderResult::TooShort(x) => assert!(matches!(
+                                    expected_read_error,
+                                    ReaderResult::TooShort(y) if x == y
+                                )),
+                                ReaderResult::Blacklisted(x) => assert!(matches!(
+                                    expected_read_error,
+                                    ReaderResult::Blacklisted(y) if x == y
+                                )),
                             }
                         } else {
-                            panic!("Expected: {:?}, actual: {:?}", expected_forward_result, ForwardResult::ReadError(reader_result));
+                            panic!(
+                                "Expected: {:?}, actual: {:?}",
+                                expected_forward_result,
+                                ForwardResult::ReadError(reader_result)
+                            );
                         }
+                    }
                 }
             }
-            Err(expected_error) => if let Err(actual_error) = actual_result {
-                assert_eq!(expected_error.root_cause().to_string(), actual_error.root_cause().to_string())
-            } else {
-                panic!("Expected error {:?} but got ok {:?}", expected_error, actual_result.unwrap());
+            Err(expected_error) => {
+                if let Err(actual_error) = actual_result {
+                    assert_eq!(
+                        expected_error.root_cause().to_string(),
+                        actual_error.root_cause().to_string()
+                    )
+                } else {
+                    panic!(
+                        "Expected error {:?} but got ok {:?}",
+                        expected_error,
+                        actual_result.unwrap()
+                    );
+                }
             }
         }
     }

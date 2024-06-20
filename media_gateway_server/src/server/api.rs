@@ -1,5 +1,5 @@
-use std::sync::Mutex;
 use actix_protobuf::ProtoBuf;
+use std::sync::Mutex;
 
 use actix_web::{post, web, Responder};
 
@@ -10,7 +10,7 @@ use crate::server::service::GatewayService;
 #[post("/")]
 async fn gateway(
     service: web::Data<Mutex<GatewayService>>,
-    media: ProtoBuf<Media>
+    media: ProtoBuf<Media>,
 ) -> impl Responder {
     let gateway_service = service.lock().unwrap();
     gateway_service.process(media)
