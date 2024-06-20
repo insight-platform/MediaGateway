@@ -1,11 +1,13 @@
-use actix_protobuf::ProtoBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-use actix_web::{post, web, Responder};
+use actix_protobuf::ProtoBuf;
+use actix_web::http::header::ContentType;
+use actix_web::{get, post, web, HttpResponse, Responder};
 
 use media_gateway_common::model::Media;
 
-use crate::server::service::GatewayService;
+use crate::server::service::gateway::GatewayService;
+use crate::server::service::health::HealthService;
 
 #[post("/")]
 async fn gateway(
@@ -14,4 +16,14 @@ async fn gateway(
 ) -> impl Responder {
     let gateway_service = service.lock().unwrap();
     gateway_service.process(media)
+}
+
+#[get("/health")]
+async fn health(service: web::Data<Arc<HealthService>>) -> impl Responder {
+    let health_state = service.current_state();
+    let body = serde_json::to_string(&health_state).unwrap();
+
+    HttpResponse::Ok()
+        .content_type(ContentType::json())
+        .body(body)
 }

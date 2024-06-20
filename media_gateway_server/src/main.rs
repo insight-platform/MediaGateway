@@ -1,5 +1,5 @@
 use std::env::args;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use actix_web::{web, App, HttpServer};
 use anyhow::{anyhow, Result};
@@ -8,8 +8,9 @@ use twelf::reexports::log::info;
 
 use server::configuration::GatewayConfiguration;
 
-use crate::server::api::gateway;
-use crate::server::service::GatewayService;
+use crate::server::api::{gateway, health};
+use crate::server::service::gateway::GatewayService;
+use crate::server::service::health::HealthService;
 
 mod server;
 
@@ -32,10 +33,13 @@ async fn main() -> Result<()> {
     let conf = GatewayConfiguration::new(&conf_arg)?;
     let bind_address = ("127.0.0.1", conf.port);
     let gateway_service = GatewayService::try_from(&conf)?;
+    let health_service = Arc::new(HealthService::new());
     let mut http_server = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(Mutex::new(gateway_service.clone())))
+            .app_data(web::Data::new(health_service.clone()))
             .service(gateway)
+            .service(health)
     });
 
     http_server = if let Some(ssl_conf) = conf.ssl {
