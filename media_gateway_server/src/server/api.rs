@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use actix_protobuf::ProtoBuf;
 use actix_web::http::header::ContentType;
 use actix_web::{get, post, web, HttpResponse, Responder};
@@ -20,7 +18,7 @@ async fn gateway(
 }
 
 #[get("/health")]
-async fn health(service: web::Data<Arc<HealthService>>) -> impl Responder {
+async fn health(service: web::Data<HealthService>) -> impl Responder {
     let health_state = service.current_state();
     let body = serde_json::to_string(&health_state).unwrap();
 
