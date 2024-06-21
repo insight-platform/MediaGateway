@@ -14,6 +14,7 @@ serde = { version = "1", features = ["derive"] }
 anyhow = "1"
 twelf = { version = "0.15", features = ["json", "env", "shellexpand"], default-features = false }
 rand = "0.8.5"
+tokio = { version = "1", features = ["sync", "test-util"] }
 
 [workspace.package]
 version = "0.1.0"

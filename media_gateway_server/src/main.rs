@@ -1,9 +1,10 @@
 use std::env::args;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use actix_web::{web, App, HttpServer};
 use anyhow::{anyhow, Result};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
+use tokio::sync::Mutex;
 use twelf::reexports::log::info;
 
 use server::configuration::GatewayConfiguration;
@@ -32,11 +33,11 @@ async fn main() -> Result<()> {
 
     let conf = GatewayConfiguration::new(&conf_arg)?;
     let bind_address = ("127.0.0.1", conf.port);
-    let gateway_service = GatewayService::try_from(&conf)?;
+    let gateway_service = web::Data::new(Mutex::new(GatewayService::try_from(&conf)?));
     let health_service = Arc::new(HealthService::new());
     let mut http_server = HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(Mutex::new(gateway_service.clone())))
+            .app_data(gateway_service.clone())
             .app_data(web::Data::new(health_service.clone()))
             .service(gateway)
             .service(health)
