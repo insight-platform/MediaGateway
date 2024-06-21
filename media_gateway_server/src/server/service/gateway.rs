@@ -83,9 +83,8 @@ mod tests {
         ReaderConfigBuilder, ReaderResult, SyncReader, SyncWriter, WriterConfigBuilder,
     };
 
+    use crate::server::service::gateway::GatewayService;
     use media_gateway_common::model::Media;
-
-    use crate::server::service::GatewayService;
 
     #[test]
     fn process_invalid_topic() {
