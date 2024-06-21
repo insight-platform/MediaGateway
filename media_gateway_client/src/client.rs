@@ -1,6 +1,9 @@
+use std::fs::File;
+use std::io::Read;
+
 use anyhow::anyhow;
 use reqwest::header::CONTENT_TYPE;
-use reqwest::{Client, StatusCode};
+use reqwest::{Certificate, Client, StatusCode};
 use savant_core::transport::zeromq::{ReaderResult, SyncReader};
 
 use media_gateway_common::model::Media;
@@ -79,7 +82,17 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
 
     fn try_from(configuration: &GatewayClientConfiguration) -> anyhow::Result<Self> {
         let reader = SyncReader::try_from(&configuration.in_stream)?;
-        let client = Client::default();
+
+        let client = if let Some(ssl_conf) = &configuration.ssl {
+            let mut buf = Vec::new();
+            File::open(&ssl_conf.certificate)?.read_to_end(&mut buf)?;
+            let cert = Certificate::from_pem(&buf)?;
+
+            Client::builder().add_root_certificate(cert).build()?
+        } else {
+            Client::default()
+        };
+
         Ok(GatewayClient::new(
             reader,
             client,

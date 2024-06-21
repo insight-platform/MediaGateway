@@ -4,11 +4,17 @@ use savant_core::transport::zeromq::{ReaderConfigBuilder, SyncReader};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SslConfiguration {
+    pub certificate: String,
+}
+
 #[config]
 #[derive(Debug, Serialize)]
 pub struct GatewayClientConfiguration {
     pub url: String,
     pub in_stream: SourceConfiguration,
+    pub ssl: Option<SslConfiguration>,
 }
 
 impl GatewayClientConfiguration {
