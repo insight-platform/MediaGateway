@@ -9,8 +9,6 @@ use media_gateway_common::model::Media;
 
 use crate::server::configuration::GatewayConfiguration;
 
-const LOG_ENTRY: &str = "gateway service";
-
 #[derive(Clone)]
 pub struct GatewayService {
     writer: SyncWriter,
@@ -37,7 +35,6 @@ impl GatewayService {
         let message = message_result.unwrap();
 
         log::debug!(
-            target: LOG_ENTRY,
             "Received message: topic: {}, message: {:?}, data: len={}",
             topic,
             message,
@@ -57,11 +54,7 @@ impl GatewayService {
             Ok(WriterResult::Ack { .. }) => HttpResponse::Ok().finish(),
             Ok(WriterResult::Success { .. }) => HttpResponse::Ok().finish(),
             Err(e) => {
-                error!(
-                    target: LOG_ENTRY,
-                    "Failed to send a message: {:?}",
-                    e
-                );
+                error!("Failed to send a message: {:?}", e);
                 HttpResponse::InternalServerError().finish()
             }
         }
