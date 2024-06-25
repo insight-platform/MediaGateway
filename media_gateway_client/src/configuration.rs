@@ -4,9 +4,16 @@ use savant_core::transport::zeromq::{ReaderConfigBuilder, SyncReader};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
 
+use media_gateway_common::configuration::BasicUser;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SslConfiguration {
     pub certificate: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthConfiguration {
+    pub basic: BasicUser,
 }
 
 #[config]
@@ -15,6 +22,7 @@ pub struct GatewayClientConfiguration {
     pub url: String,
     pub in_stream: SourceConfiguration,
     pub ssl: Option<SslConfiguration>,
+    pub auth: Option<AuthConfiguration>,
 }
 
 impl GatewayClientConfiguration {

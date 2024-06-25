@@ -1,6 +1,10 @@
+use std::collections::HashMap;
 use std::env::args;
 
+use actix_web::middleware::Condition;
+use actix_web::web::scope;
 use actix_web::{web, App, HttpServer};
+use actix_web_httpauth::middleware::HttpAuthentication;
 use anyhow::{anyhow, Result};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use tokio::sync::Mutex;
@@ -9,8 +13,10 @@ use twelf::reexports::log::info;
 use server::configuration::GatewayConfiguration;
 
 use crate::server::api::{gateway, health};
+use crate::server::security::basic_auth_validator;
 use crate::server::service::gateway::GatewayService;
 use crate::server::service::health::HealthService;
+use crate::server::service::user::UserService;
 
 mod server;
 
@@ -34,12 +40,35 @@ async fn main() -> Result<()> {
     let bind_address = ("127.0.0.1", conf.port);
     let gateway_service = web::Data::new(Mutex::new(GatewayService::try_from(&conf)?));
     let health_service = web::Data::new(HealthService::new());
+    let auth_enabled = conf.auth.is_some();
+    let users = if let Some(auth_conf) = conf.auth {
+        HashMap::from_iter(
+            auth_conf
+                .basic
+                .iter()
+                .map(|e| (e.id.clone(), e.password.clone())),
+        )
+    } else {
+        HashMap::new()
+    };
+    let user_service = web::Data::new(UserService::new(users));
     let mut http_server = HttpServer::new(move || {
         App::new()
-            .app_data(gateway_service.clone())
-            .app_data(health_service.clone())
-            .service(gateway)
-            .service(health)
+            .service(
+                scope("/")
+                    .app_data(gateway_service.clone())
+                    .app_data(user_service.clone())
+                    .route("", web::post().to(gateway))
+                    .wrap(Condition::new(
+                        auth_enabled,
+                        HttpAuthentication::basic(basic_auth_validator),
+                    )),
+            )
+            .service(
+                scope("/health")
+                    .app_data(health_service.clone())
+                    .route("", web::get().to(health)),
+            )
     });
 
     http_server = if let Some(ssl_conf) = conf.ssl {

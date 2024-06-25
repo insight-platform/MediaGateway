@@ -2,7 +2,8 @@ use std::fs::File;
 use std::io::Read;
 
 use anyhow::anyhow;
-use reqwest::header::CONTENT_TYPE;
+use http_auth_basic::Credentials;
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{Certificate, Client, StatusCode};
 use savant_core::transport::zeromq::{ReaderResult, SyncReader};
 
@@ -83,19 +84,35 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
     fn try_from(configuration: &GatewayClientConfiguration) -> anyhow::Result<Self> {
         let reader = SyncReader::try_from(&configuration.in_stream)?;
 
-        let client = if let Some(ssl_conf) = &configuration.ssl {
+        let mut client_builder = Client::builder();
+
+        client_builder = if let Some(ssl_conf) = &configuration.ssl {
             let mut buf = Vec::new();
             File::open(&ssl_conf.certificate)?.read_to_end(&mut buf)?;
             let cert = Certificate::from_pem(&buf)?;
 
-            Client::builder().add_root_certificate(cert).build()?
+            client_builder.add_root_certificate(cert)
         } else {
-            Client::default()
+            client_builder
+        };
+
+        client_builder = if let Some(auth_conf) = &configuration.auth {
+            let mut headers = HeaderMap::new();
+
+            let mut auth_value = HeaderValue::from_str(
+                &Credentials::new(&auth_conf.basic.id, &auth_conf.basic.password).as_http_header(),
+            )?;
+            auth_value.set_sensitive(true);
+            headers.insert(AUTHORIZATION, auth_value);
+
+            client_builder.default_headers(headers)
+        } else {
+            client_builder
         };
 
         Ok(GatewayClient::new(
             reader,
-            client,
+            client_builder.build()?,
             configuration.url.clone(),
         ))
     }

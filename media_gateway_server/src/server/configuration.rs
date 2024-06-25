@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use media_gateway_common::configuration::BasicUser;
 use savant_core::transport::zeromq::{SyncWriter, WriterConfigBuilder};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
@@ -10,6 +11,7 @@ pub struct GatewayConfiguration {
     pub(crate) port: u16,
     pub(crate) ssl: Option<SslConfiguration>,
     pub(crate) out_stream: SinkConfiguration,
+    pub(crate) auth: Option<AuthConfiguration>,
 }
 
 impl GatewayConfiguration {
@@ -23,6 +25,11 @@ impl GatewayConfiguration {
 pub struct SslConfiguration {
     pub(crate) certificate: String,
     pub(crate) certificate_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthConfiguration {
+    pub(crate) basic: Vec<BasicUser>,
 }
 
 impl TryFrom<&SinkConfiguration> for SyncWriter {
