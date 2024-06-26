@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
     info!("Configuration: {}", conf_arg);
 
     let conf = GatewayConfiguration::new(&conf_arg)?;
-    let bind_address = ("0.0.0.0", conf.port);
+    let bind_address = (conf.ip.as_str(), conf.port);
     let gateway_service = web::Data::new(Mutex::new(GatewayService::try_from(&conf)?));
     let health_service = web::Data::new(HealthService::new());
     let auth_enabled = conf.auth.is_some();

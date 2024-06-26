@@ -8,6 +8,7 @@ use twelf::{config, Layer};
 #[config]
 #[derive(Debug, Serialize)]
 pub struct GatewayConfiguration {
+    pub(crate) ip: String,
     pub(crate) port: u16,
     pub(crate) ssl: Option<SslConfiguration>,
     pub(crate) out_stream: SinkConfiguration,
