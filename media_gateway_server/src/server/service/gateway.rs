@@ -1,5 +1,6 @@
 use actix_protobuf::ProtoBuf;
 use actix_web::HttpResponse;
+use log::info;
 use savant_core::message::Message;
 use savant_core::transport::zeromq::{SyncWriter, WriterResult};
 use twelf::reexports::log;
@@ -70,6 +71,15 @@ impl TryFrom<&GatewayConfiguration> for GatewayService {
     }
 }
 
+impl Drop for GatewayService {
+    fn drop(&mut self) {
+        info!("Shutting down writer");
+        let result = self.writer.shutdown();
+        if result.is_err() {
+            error!("Failed to shutdown writer {:?}", result.unwrap_err());
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use std::thread;
@@ -83,8 +93,9 @@ mod tests {
         ReaderConfigBuilder, ReaderResult, SyncReader, SyncWriter, WriterConfigBuilder,
     };
 
-    use crate::server::service::gateway::GatewayService;
     use media_gateway_common::model::Media;
+
+    use crate::server::service::gateway::GatewayService;
 
     #[test]
     fn process_invalid_topic() {
