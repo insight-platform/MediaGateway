@@ -2,6 +2,7 @@ FROM rust:1.78 as builder
 
 WORKDIR /usr/src/media-gateway
 COPY . .
+COPY ./samples/server/config.json /opt/etc/config.json
 
 RUN build/install-deps.sh
 RUN cargo build --release
@@ -16,8 +17,10 @@ RUN \
     openssl
 COPY --from=builder /opt/libs /opt/libs
 COPY --from=builder /opt/bin/ /opt/bin/
+COPY --from=builder /opt/etc/ /opt/etc/
 
 ENV LD_LIBRARY_PATH=/opt/libs
 ENV RUST_LOG=info
 
-CMD ["/opt/bin/media_gateway_server", "/opt/media-gateway-server/config.json"]
+ENTRYPOINT ["/opt/bin/media_gateway_server"]
+CMD ["/opt/etc/config.json"]
