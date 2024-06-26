@@ -46,7 +46,7 @@ impl GatewayService {
             .map(|v| v.as_slice())
             .collect::<Vec<&[u8]>>();
 
-        let result = self.writer.send_message(&topic, &message, &data);
+        let result = self.writer.send_message(topic, &message, &data);
         match result {
             Ok(WriterResult::SendTimeout) => HttpResponse::GatewayTimeout().finish(),
             Ok(WriterResult::AckTimeout(_)) => HttpResponse::BadGateway().finish(),
