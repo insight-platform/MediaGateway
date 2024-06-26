@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: sudo sh -e install_deps.sh
+        run: sudo sh -e build/install-deps.sh
       - name: Build
         run: cargo build --verbose
       - name: Run tests
