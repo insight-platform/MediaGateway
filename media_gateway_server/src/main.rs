@@ -6,9 +6,9 @@ use actix_web::web::scope;
 use actix_web::{web, App, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use anyhow::{anyhow, Result};
+use log::info;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use tokio::sync::Mutex;
-use twelf::reexports::log::info;
 
 use server::configuration::GatewayConfiguration;
 

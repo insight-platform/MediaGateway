@@ -1,10 +1,8 @@
 use actix_protobuf::ProtoBuf;
 use actix_web::HttpResponse;
-use log::info;
+use log::{debug, error, info};
 use savant_core::message::Message;
 use savant_core::transport::zeromq::{SyncWriter, WriterResult};
-use twelf::reexports::log;
-use twelf::reexports::log::error;
 
 use media_gateway_common::model::Media;
 
@@ -35,7 +33,7 @@ impl GatewayService {
         }
         let message = message_result.unwrap();
 
-        log::debug!(
+        debug!(
             "Received message: topic: {}, message: {:?}, data: len={}",
             topic,
             message,
