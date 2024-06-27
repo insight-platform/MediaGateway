@@ -1,5 +1,8 @@
 //! The media gateway server.
 //!
+//! The server accepts messages via HTTP(s) and writers them to [ZeroMQ](https://zeromq.org/)
+//! using [`SyncWriter`](savant_core::transport::zeromq::SyncWriter) from `savant_core`.
+//!
 //! To run the server
 //! ```bash
 //! media_gateway_server config.json
@@ -9,8 +12,40 @@
 //! * SSL (including a self-signed PEM encoded certificate)
 //! * basic authentication with an in-memory user data storage
 //!
+//! # API
+//! * an endpoint to process messages
+//! ```
+//! POST / HTTP/1.1
+//! Host: <host>
+//! Content-Type: application/protobuf
+//! Content-Length: <length>
+//!
+//! <data>
+//! ```
+//! where data is [`Media`](media_gateway_common::model::Media)
+//!
+//! Responses:
+//!
+//!| HTTP status code | Description                                                                                                                                                                |
+//!|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+//!| 200              | Corresponds to [`WriterResult::Ack`](savant_core::transport::zeromq::WriterResult::Ack) or [`WriterResult::Success`](savant_core::transport::zeromq::WriterResult::Success)|
+//!| 504              | Corresponds to [`WriterResult::SendTimeout`](savant_core::transport::zeromq::WriterResult::SendTimeout)                                                                    |
+//!| 502              | Corresponds to [`WriterResult::AckTimeout`](savant_core::transport::zeromq::WriterResult::AckTimeout)                                                                      |
+//!
+//! * a health endpoint
+//! ```
+//! GET /health HTTP/1.1
+//! Host: <host>
+//! ```
+//! If the server is healthy an HTTP response with 200 OK status code and the body below will be
+//! returned
+//! ```json
+//! {"status":"healthy"}
+//! ```
 //! # Examples
 //! See [configuration files](https://github.com/insight-platform/MediaGateway/blob/main/samples/server).
+//! `out_stream` fields represents configuration for
+//! [`WriterConfigBuilder`](savant_core::transport::zeromq::WriterConfigBuilder).
 use std::collections::HashMap;
 use std::env::args;
 
