@@ -1,7 +1,13 @@
 {
   "url": "https://127.0.0.1:8080/",
   "ssl": {
-    "certificate": "sample.crt"
+    "certificate": "cert.pem"
+  },
+  "auth": {
+    "basic": {
+      "id": "user",
+      "password": "password"
+    }
   },
   "in_stream": {
     "url": "sub+bind:ipc:///tmp/test",

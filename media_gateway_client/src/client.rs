@@ -1,3 +1,6 @@
+//! The media gateway client.
+//!
+//! The module provides [`GatewayClient`] and [`ForwardResult`].
 use std::fs::File;
 use std::io::Read;
 
@@ -12,14 +15,39 @@ use media_gateway_common::model::Media;
 use crate::client::ForwardResult::ReadError;
 use crate::configuration::GatewayClientConfiguration;
 
+/// The result of [`GatewayClient::forward_message`] method.
 #[derive(Debug)]
 pub enum ForwardResult {
+    /// Represents success
     Success,
+    /// Represents the error caused by
+    /// [`WriterResult::SendTimeout`](savant_core::transport::zeromq::WriterResult::SendTimeout)
     SendTimeout,
+    /// Represents the error caused by
+    /// [`WriterResult::AckTimeout`](savant_core::transport::zeromq::WriterResult::AckTimeout)
     AckTimeout,
+    /// Represents the error caused by
+    /// [`ReaderResult`] except
+    /// [`Message`](savant_core::transport::zeromq::ReaderResult::Message)
     ReadError(ReaderResult),
 }
 
+/// The client for media gateway server.
+///
+/// The recommended way to create a new instance is via [`GatewayClientConfiguration`].
+/// ```rust no_run
+/// # use anyhow::Result;
+/// # use media_gateway_client::client::GatewayClient;
+/// # use media_gateway_client::configuration::GatewayClientConfiguration;
+/// # fn main() -> Result<()> {
+/// let conf = GatewayClientConfiguration::new("client.json")?;
+/// let client = GatewayClient::try_from(&conf)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// The main method is [`GatewayClient::forward_message`]. After usage of the client
+/// [`GatewayClient::shutdown`] method should be called to release resources.
 pub struct GatewayClient {
     url: String,
     reader: SyncReader,
@@ -27,6 +55,18 @@ pub struct GatewayClient {
 }
 
 impl GatewayClient {
+    /// Constructs a new instance of the client. The **recommended** way is to construct via
+    /// [`GatewayClientConfiguration`].
+    ///
+    /// # Arguments
+    /// * `reader` - a reader for messages to be forwarded to the media gateway server
+    /// * `client` - a client to forward messages
+    /// * `url` - an endpoint of the media gateway service to accept messages
+    ///
+    /// # Details
+    ///
+    /// Before calling this method the reader must be started and the client must be fully
+    /// configured (SSL certificates, [`AUTHORIZATION`] header as a default headers).
     pub fn new(reader: SyncReader, client: Client, url: String) -> Self {
         Self {
             reader,
@@ -35,6 +75,7 @@ impl GatewayClient {
         }
     }
 
+    /// Receives the messages using [`SyncReader`] and sends it to the media gateway server.
     pub async fn forward_message(&self) -> anyhow::Result<ForwardResult> {
         let reader_result = self.reader.receive()?;
         match reader_result {
@@ -73,6 +114,7 @@ impl GatewayClient {
         }
     }
 
+    /// Releases resources including the underlying [`SyncReader`].
     pub fn shutdown(&self) -> anyhow::Result<()> {
         self.reader.shutdown()
     }
