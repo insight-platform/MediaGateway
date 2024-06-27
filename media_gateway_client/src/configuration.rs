@@ -55,21 +55,28 @@ impl TryFrom<&SourceConfiguration> for SyncReader {
     type Error = anyhow::Error;
 
     fn try_from(source_conf: &SourceConfiguration) -> Result<SyncReader, Self::Error> {
-        let conf = ReaderConfigBuilder::default()
+        let mut builder = ReaderConfigBuilder::default()
             .url(&source_conf.url)?
             .with_receive_timeout(source_conf.receive_timeout.as_millis() as i32)?
             .with_receive_hwm(source_conf.receive_hwm as i32)?
             .with_topic_prefix_spec((&source_conf.topic_prefix_spec).into())?
-            .with_routing_cache_size(source_conf.source_cache_size)?
-            .with_fix_ipc_permissions(source_conf.fix_ipc_permissions)?
-            .build()?;
+            .with_routing_cache_size(source_conf.source_cache_size)?;
+
+        builder = if source_conf.fix_ipc_permissions.is_some() {
+            builder.with_fix_ipc_permissions(source_conf.fix_ipc_permissions)?
+        } else {
+            builder
+        };
+
+        let conf = builder.build()?;
         let reader = SyncReader::new(&conf)?;
         reader.is_started();
         Ok(reader)
     }
 }
 
-// copy-paste from Replay (except documentation)
+// copy-paste from Replay (except documentation and absence of SourceConfiguration::inflight_ops)
+// and visibility of SourceConfiguration fields
 /// A representation for [`savant_core::transport::zeromq::TopicPrefixSpec`].
 #[derive(Debug, Serialize, Deserialize)]
 pub enum TopicPrefixSpec {
@@ -97,18 +104,17 @@ pub struct SourceConfiguration {
     ///
     /// * `sub+connect:ipc://tmp/test`
     /// * `rep+bind:tcp://127.0.0.1:2345`
-    pub(crate) url: String,
+    pub url: String,
     /// A timeout to receive a message
-    pub(crate) receive_timeout: Duration,
+    pub receive_timeout: Duration,
     /// A high-water mark to receive messages
-    pub(crate) receive_hwm: usize,
+    pub receive_hwm: usize,
     /// A topic
-    pub(crate) topic_prefix_spec: TopicPrefixSpec,
+    pub topic_prefix_spec: TopicPrefixSpec,
     /// A size of routing cache
-    pub(crate) source_cache_size: usize,
+    pub source_cache_size: usize,
     /// Permissions for IPC endpoint. See [`std::fs::Permissions::from_mode`]
-    pub(crate) fix_ipc_permissions: Option<u32>,
-    pub(crate) inflight_ops: usize,
+    pub fix_ipc_permissions: Option<u32>,
 }
 
 impl From<&TopicPrefixSpec> for savant_core::transport::zeromq::TopicPrefixSpec {
@@ -120,4 +126,5 @@ impl From<&TopicPrefixSpec> for savant_core::transport::zeromq::TopicPrefixSpec 
         }
     }
 }
-// copy-paste from Replay (except documentation)
+// copy-paste from Replay (except documentation and absence of SourceConfiguration::inflight_ops)
+// and visibility of SourceConfiguration fields

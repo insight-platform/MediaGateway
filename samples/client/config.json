@@ -20,7 +20,6 @@
       "none": null
     },
     "source_cache_size": 1000,
-    "fix_ipc_permissions": 511,
-    "inflight_ops": 100
+    "fix_ipc_permissions": 511
   }
 }
