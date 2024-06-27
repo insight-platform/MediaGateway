@@ -1,3 +1,16 @@
+//! The media gateway server.
+//!
+//! To run the server
+//! ```bash
+//! media_gateway_server config.json
+//! ```
+//!
+//! Following features are supported:
+//! * SSL (including a self-signed PEM encoded certificate)
+//! * basic authentication with an in-memory user data storage
+//!
+//! # Examples
+//! See [configuration files](https://github.com/insight-platform/MediaGateway/blob/main/samples/server).
 use std::collections::HashMap;
 use std::env::args;
 

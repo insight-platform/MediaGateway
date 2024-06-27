@@ -2,7 +2,7 @@ FROM rust:1.78 as builder
 
 WORKDIR /usr/src/media-gateway
 COPY . .
-COPY ./samples/server/config.json /opt/etc/config.json
+COPY samples/server/default_config.json /opt/etc/config.json
 
 RUN build/install-deps.sh
 RUN cargo build --release
