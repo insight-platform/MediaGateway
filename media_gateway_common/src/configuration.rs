@@ -1,10 +1,16 @@
+//! Models for media gateway client and server configurations.
+//!
+//! The module provides [`BasicUser`].
 use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
+/// Credentials for basic authentication.
 #[derive(Serialize, Deserialize)]
 pub struct BasicUser {
+    /// An id (user's name)
     pub id: String,
+    /// A password
     pub password: String,
 }
 

@@ -1,17 +1,26 @@
+//! Models for media gateway client-server communication.
+//!
+//! The module provides [`Media`] struct that can be converted from/to
+//! [protocol buffers](https://protobuf.dev/).
 use savant_protobuf::generated::Message;
 
+/// A struct that contains all information required to forward a message.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Media {
+    /// A message to be forwarded
     #[prost(message, optional, tag = "1")]
     pub message: ::core::option::Option<Message>,
+    /// A topic
     #[prost(bytes = "vec", tag = "2")]
     pub topic: ::prost::alloc::vec::Vec<u8>,
+    /// Extra data sent with the message
     #[prost(bytes = "vec", repeated, tag = "3")]
     pub data: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
 }
 
 impl Media {
+    /// Serializes the struct to protocol buffers.
     pub fn to_proto(&self) -> anyhow::Result<Vec<u8>> {
         use prost::Message as ProstMessage;
         let mut buf = Vec::new();
@@ -19,6 +28,7 @@ impl Media {
         Ok(buf)
     }
 
+    /// Deserializes the struct from protocol buffers.
     pub fn from_proto(bytes: &[u8]) -> anyhow::Result<Self> {
         use prost::Message as ProstMessage;
         let media = Media::decode(bytes)?;
