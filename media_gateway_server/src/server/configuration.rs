@@ -1,9 +1,10 @@
 use std::time::Duration;
 
-use media_gateway_common::configuration::BasicUser;
 use savant_core::transport::zeromq::{SyncWriter, WriterConfigBuilder};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
+
+use media_gateway_common::configuration::BasicUser;
 
 #[config]
 #[derive(Debug, Serialize)]
@@ -37,23 +38,30 @@ impl TryFrom<&SinkConfiguration> for SyncWriter {
     type Error = anyhow::Error;
 
     fn try_from(configuration: &SinkConfiguration) -> Result<Self, Self::Error> {
-        let conf = WriterConfigBuilder::default()
+        let mut builder = WriterConfigBuilder::default()
             .url(&configuration.url)?
             .with_receive_timeout(configuration.receive_timeout.as_millis() as i32)?
             .with_send_timeout(configuration.send_timeout.as_millis() as i32)?
             .with_receive_retries(configuration.receive_retries as i32)?
             .with_send_retries(configuration.send_retries as i32)?
             .with_receive_hwm(configuration.receive_hwm as i32)?
-            .with_send_hwm(configuration.send_hwm as i32)?
-            .build()?;
+            .with_send_hwm(configuration.send_hwm as i32)?;
 
+        builder = if configuration.fix_ipc_permissions.is_some() {
+            builder.with_fix_ipc_permissions(configuration.fix_ipc_permissions)?
+        } else {
+            builder
+        };
+
+        let conf = builder.build()?;
         let w = SyncWriter::new(&conf)?;
         w.is_started();
         Ok(w)
     }
 }
 
-// copy-paste from Replay
+// copy-paste from Replay except removal of inflight_ops and addition of fix_ipc_permissions to
+// SinkConfiguration
 #[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
 pub struct SinkConfiguration {
     pub(crate) url: String,
@@ -63,7 +71,7 @@ pub struct SinkConfiguration {
     pub(crate) receive_retries: usize,
     pub(crate) send_hwm: usize,
     pub(crate) receive_hwm: usize,
-    pub(crate) inflight_ops: usize,
+    pub(crate) fix_ipc_permissions: Option<u32>,
 }
 
 impl Default for SinkConfiguration {
@@ -76,7 +84,7 @@ impl Default for SinkConfiguration {
             receive_retries: 3,
             send_hwm: 1000,
             receive_hwm: 1000,
-            inflight_ops: 100,
+            fix_ipc_permissions: None,
         }
     }
 }
@@ -91,7 +99,7 @@ impl SinkConfiguration {
         receive_retries: usize,
         send_hwm: usize,
         receive_hwm: usize,
-        inflight_ops: usize,
+        fix_ipc_permissions: Option<u32>,
     ) -> Self {
         Self {
             url: url.to_string(),
@@ -101,7 +109,7 @@ impl SinkConfiguration {
             receive_retries,
             send_hwm,
             receive_hwm,
-            inflight_ops,
+            fix_ipc_permissions,
         }
     }
 
@@ -115,8 +123,9 @@ impl SinkConfiguration {
             3,
             1000,
             100,
-            100,
+            None,
         )
     }
 }
-// copy-paste from Replay
+// copy-paste from Replay except removal of inflight_ops and addition of fix_ipc_permissions to
+// SinkConfiguration

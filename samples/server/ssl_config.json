@@ -19,6 +19,6 @@
     "receive_retries": 3,
     "send_hwm": 1000,
     "receive_hwm": 1000,
-    "inflight_ops": 100
+    "fix_ipc_permissions": 511
   }
 }
