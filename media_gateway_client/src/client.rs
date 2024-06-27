@@ -32,7 +32,7 @@ pub enum ForwardResult {
     ReadError(ReaderResult),
 }
 
-/// The client for media gateway server.
+/// The client for the media gateway server.
 ///
 /// The recommended way to create a new instance is via [`GatewayClientConfiguration`].
 /// ```rust no_run

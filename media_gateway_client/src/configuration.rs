@@ -1,4 +1,4 @@
-//! The gateway client configuration.
+//! The media gateway client configuration.
 //!
 //! The module provides [`GatewayClientConfiguration`].
 use std::time::Duration;
@@ -44,7 +44,7 @@ impl GatewayClientConfiguration {
     /// * `path` - a path to the JSON file
     ///
     /// # Examples
-    /// See [config.json](https://github.com/insight-platform/MediaGateway/blob/develop/samples/client/config.json)
+    /// See [config.json](https://github.com/insight-platform/MediaGateway/blob/main/samples/client/config.json).
     pub fn new(path: &str) -> anyhow::Result<Self> {
         let conf = Self::with_layers(&[Layer::Json(path.into())])?;
         Ok(conf)
@@ -111,9 +111,9 @@ pub struct SourceConfiguration {
     pub receive_hwm: usize,
     /// A topic
     pub topic_prefix_spec: TopicPrefixSpec,
-    /// A size of routing cache
+    /// A size of a routing cache
     pub source_cache_size: usize,
-    /// Permissions for IPC endpoint. See [`std::fs::Permissions::from_mode`]
+    /// Permissions for the IPC endpoint. See [`std::fs::set_permissions`].
     pub fix_ipc_permissions: Option<u32>,
 }
 
