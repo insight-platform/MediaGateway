@@ -1,13 +1,12 @@
 //! The media gateway client.
 //!
 //! The module provides [`GatewayClient`] and [`ForwardResult`].
-use std::fs::File;
-use std::io::Read;
+use std::fs;
 
 use anyhow::anyhow;
 use http_auth_basic::Credentials;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
-use reqwest::{Certificate, Client, StatusCode};
+use reqwest::{Certificate, Client, Identity, StatusCode};
 use savant_core::transport::zeromq::{ReaderResult, SyncReader};
 
 use media_gateway_common::model::Media;
@@ -126,14 +125,27 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
     fn try_from(configuration: &GatewayClientConfiguration) -> anyhow::Result<Self> {
         let reader = SyncReader::try_from(&configuration.in_stream)?;
 
-        let mut client_builder = Client::builder();
+        let mut client_builder = Client::builder().tls_built_in_root_certs(true);
 
         client_builder = if let Some(ssl_conf) = &configuration.ssl {
-            let mut buf = Vec::new();
-            File::open(&ssl_conf.certificate)?.read_to_end(&mut buf)?;
-            let cert = Certificate::from_pem(&buf)?;
+            client_builder = if let Some(server_ssl_conf) = &ssl_conf.server {
+                let buf = fs::read(&server_ssl_conf.certificate)?;
+                let cert = Certificate::from_pem(&buf)?;
 
-            client_builder.add_root_certificate(cert)
+                client_builder.add_root_certificate(cert)
+            } else {
+                client_builder
+            };
+
+            if let Some(client_ssl_conf) = &ssl_conf.client {
+                let cert = fs::read(&client_ssl_conf.certificate)?;
+                let key = fs::read(&client_ssl_conf.certificate_key)?;
+                let identity = Identity::from_pkcs8_pem(&cert, &key)?;
+
+                client_builder.identity(identity)
+            } else {
+                client_builder
+            }
         } else {
             client_builder
         };

@@ -2,8 +2,10 @@
   "ip": "0.0.0.0",
   "port": 8080,
   "ssl": {
-    "certificate": "cert.pem",
-    "certificate_key": "cert_key.pem"
+    "server": {
+      "certificate": "cert.pem",
+      "certificate_key": "cert_key.pem"
+    }
   },
   "out_stream": {
     "url": "pub+bind:ipc:///tmp/test",

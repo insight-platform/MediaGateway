@@ -25,8 +25,20 @@ impl GatewayConfiguration {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SslConfiguration {
-    pub(crate) certificate: String,
-    pub(crate) certificate_key: String,
+    pub server: ServerSslConfiguration,
+    pub client: Option<ClientSslConfiguration>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ServerSslConfiguration {
+    pub certificate: String,
+    pub certificate_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClientSslConfiguration {
+    pub certificates: String,
+    pub crls: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -20,7 +20,7 @@ twelf = { workspace = true }
 
 media_gateway_common = { path = "../media_gateway_common" }
 
-reqwest = { version = "0.12.5" }
+reqwest = { version = "0.12.5", features = ["native-tls"] }
 http-auth-basic = "0.3.3"
 
 [dev-dependencies]

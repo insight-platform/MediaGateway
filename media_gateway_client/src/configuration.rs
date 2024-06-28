@@ -12,8 +12,26 @@ use media_gateway_common::configuration::BasicUser;
 /// SSL settings to connect to the media gateway server.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SslConfiguration {
+    /// Server settings
+    pub server: Option<ServerSslConfiguration>,
+    /// Client settings
+    pub client: Option<ClientSslConfiguration>,
+}
+
+/// Server SSL settings.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ServerSslConfiguration {
     /// A path to a self-signed PEM encoded server certificate
     pub certificate: String,
+}
+
+/// Client SSL settings. See [`Identity::from_pkcs8_pem`](reqwest::Identity::from_pkcs8_pem).
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClientSslConfiguration {
+    /// A path to a chain of PEM encoded X509 certificates, with the leaf certificate first
+    pub certificate: String,
+    /// A path to a PEM encoded PKCS #8 formatted private key
+    pub certificate_key: String,
 }
 
 /// Authentication settings to connect to the media gateway server.
