@@ -20,12 +20,12 @@ tokio = { workspace = true, features = ["sync"] }
 
 media_gateway_common = { path = "../media_gateway_common" }
 
-actix-web = { version = "4", features = ["rustls-0_23"] }
+actix-web = { version = "4", features = ["rustls-0_22"] }
 actix-protobuf = "0.10"
 actix-web-httpauth = "0.8.2"
 env_logger = "0.11"
 log = "0.4.21"
-rustls = "0.23.10"
+rustls = "0.22.4"
 rustls-pemfile = "2.1.2"
 
 [dev-dependencies]

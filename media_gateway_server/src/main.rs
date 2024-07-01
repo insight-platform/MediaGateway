@@ -125,10 +125,6 @@ async fn main() -> Result<()> {
     });
 
     http_server = if let Some(ssl_conf) = conf.ssl {
-        rustls::crypto::aws_lc_rs::default_provider()
-            .install_default()
-            .unwrap();
-
         let client_verifier = if let Some(client_ssl_conf) = &ssl_conf.client {
             let mut cert_store = RootCertStore::empty();
             let cert_file = fs::File::open(&client_ssl_conf.certificates).unwrap();
@@ -169,7 +165,7 @@ async fn main() -> Result<()> {
             .with_single_cert(tls_certs, rustls::pki_types::PrivateKeyDer::Pkcs8(tls_key))
             .unwrap();
         http_server
-            .bind_rustls_0_23(bind_address, tls_config)
+            .bind_rustls_0_22(bind_address, tls_config)
             .unwrap()
     } else {
         http_server.bind(bind_address).unwrap()
