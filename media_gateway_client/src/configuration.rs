@@ -21,7 +21,7 @@ pub struct SslConfiguration {
 /// Server SSL settings.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServerSslConfiguration {
-    /// A path to a self-signed PEM encoded server certificate
+    /// A path to a self-signed PEM encoded server certificate or PEM encoded CA certificate
     pub certificate: String,
 }
 
