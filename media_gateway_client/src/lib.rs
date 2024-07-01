@@ -14,7 +14,7 @@
 //! async fn main() {
 //!     let conf = GatewayClientConfiguration::new("client.json")
 //!         .expect("invalid gateway client configuration file");
-//!     let client = GatewayClient::try_from(&conf)
+//!     let mut client = GatewayClient::try_from(&conf)
 //!         .expect("invalid gateway client configuration");
 //!
 //!     let result = client.forward_message().await;

@@ -2,12 +2,13 @@
 //!
 //! The module provides [`GatewayClient`] and [`ForwardResult`].
 use std::fs;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use http_auth_basic::Credentials;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{Certificate, Client, Identity, StatusCode};
-use savant_core::transport::zeromq::{ReaderResult, SyncReader};
+use savant_core::transport::zeromq::{NonBlockingReader, ReaderResult};
 
 use media_gateway_common::model::Media;
 
@@ -49,7 +50,7 @@ pub enum ForwardResult {
 /// [`GatewayClient::shutdown`] method should be called to release resources.
 pub struct GatewayClient {
     url: String,
-    reader: SyncReader,
+    reader: NonBlockingReader,
     client: Client,
 }
 
@@ -66,7 +67,7 @@ impl GatewayClient {
     ///
     /// Before calling this method the reader must be started and the client must be fully
     /// configured (SSL certificates, [`AUTHORIZATION`] header as a default headers).
-    pub fn new(reader: SyncReader, client: Client, url: String) -> Self {
+    pub fn new(reader: NonBlockingReader, client: Client, url: String) -> Self {
         Self {
             reader,
             client,
@@ -76,45 +77,55 @@ impl GatewayClient {
 
     /// Receives the messages using [`SyncReader`] and sends it to the media gateway server.
     pub async fn forward_message(&self) -> anyhow::Result<ForwardResult> {
-        let reader_result = self.reader.receive()?;
-        match reader_result {
-            ReaderResult::Message {
-                message,
-                topic,
-                data,
-                ..
-            } => {
-                let media = Media {
-                    message: Option::from(savant_protobuf::generated::Message::from(
-                        message.as_ref(),
-                    )),
+        loop {
+            let reader_result = self.reader.try_receive();
+            if reader_result.is_none() {
+                log::trace!("No message received, sleeping for 1ms.");
+                tokio_timerfd::sleep(Duration::from_millis(1)).await?;
+                continue;
+            }
+            let reader_result = reader_result.unwrap()?;
+            return match reader_result {
+                ReaderResult::Message {
+                    message,
                     topic,
                     data,
-                };
-                let data = media.to_proto()?;
-                let send_result = self
-                    .client
-                    .post(&self.url)
-                    .body(data)
-                    .header(CONTENT_TYPE, "application/protobuf")
-                    .send()
-                    .await;
-                match send_result {
-                    Ok(response) => match response.status() {
-                        StatusCode::OK => Ok(ForwardResult::Success),
-                        StatusCode::GATEWAY_TIMEOUT => Ok(ForwardResult::SendTimeout),
-                        StatusCode::BAD_GATEWAY => Ok(ForwardResult::AckTimeout),
-                        status_code => Err(anyhow!("Invalid HTTP status: {}", status_code)),
-                    },
-                    Err(e) => Err(anyhow!("Error while sending a message").context(e.to_string())),
+                    ..
+                } => {
+                    let media = Media {
+                        message: Option::from(savant_protobuf::generated::Message::from(
+                            message.as_ref(),
+                        )),
+                        topic,
+                        data,
+                    };
+                    let data = media.to_proto()?;
+                    let send_result = self
+                        .client
+                        .post(&self.url)
+                        .body(data)
+                        .header(CONTENT_TYPE, "application/protobuf")
+                        .send()
+                        .await;
+                    match send_result {
+                        Ok(response) => match response.status() {
+                            StatusCode::OK => Ok(ForwardResult::Success),
+                            StatusCode::GATEWAY_TIMEOUT => Ok(ForwardResult::SendTimeout),
+                            StatusCode::BAD_GATEWAY => Ok(ForwardResult::AckTimeout),
+                            status_code => Err(anyhow!("Invalid HTTP status: {}", status_code)),
+                        },
+                        Err(e) => {
+                            Err(anyhow!("Error while sending a message").context(e.to_string()))
+                        }
+                    }
                 }
-            }
-            _ => Ok(ReadError(reader_result)),
+                _ => Ok(ReadError(reader_result)),
+            };
         }
     }
 
     /// Releases resources including the underlying [`SyncReader`].
-    pub fn shutdown(&self) -> anyhow::Result<()> {
+    pub fn shutdown(&mut self) -> anyhow::Result<()> {
         self.reader.shutdown()
     }
 }
@@ -123,7 +134,7 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
     type Error = anyhow::Error;
 
     fn try_from(configuration: &GatewayClientConfiguration) -> anyhow::Result<Self> {
-        let reader = SyncReader::try_from(&configuration.in_stream)?;
+        let reader = NonBlockingReader::try_from(&configuration.in_stream)?;
 
         let mut client_builder = Client::builder().tls_built_in_root_certs(true);
 
@@ -179,7 +190,7 @@ mod tests {
     use reqwest::{Client, StatusCode};
     use savant_core::message::Message;
     use savant_core::transport::zeromq::{
-        ReaderConfigBuilder, ReaderResult, SyncReader, SyncWriter, WriterConfigBuilder,
+        NonBlockingReader, ReaderConfigBuilder, ReaderResult, SyncWriter, WriterConfigBuilder,
         WriterResult,
     };
     use wiremock::matchers::{body_bytes, method, path};
@@ -226,14 +237,16 @@ mod tests {
     #[tokio::test]
     async fn forward_message_read_error() {
         let ipc = format!("ipc:///tmp/test{}", rand::random::<u16>());
-        let reader = SyncReader::new(
+        let mut reader = NonBlockingReader::new(
             &ReaderConfigBuilder::default()
                 .url(format!("sub+connect:{}", ipc).as_str())
                 .unwrap()
                 .build()
                 .unwrap(),
+            1,
         )
         .unwrap();
+        reader.start().unwrap();
 
         let gateway_url = format!(
             "http://127.0.0.1:{}/",
@@ -290,16 +303,18 @@ mod tests {
         )
         .unwrap();
 
-        let reader = SyncReader::new(
+        let mut reader = NonBlockingReader::new(
             &ReaderConfigBuilder::default()
                 .url(format!("sub+connect:{}", ipc).as_str())
                 .unwrap()
                 .build()
                 .unwrap(),
+            1,
         )
         .unwrap();
+        reader.start().unwrap();
 
-        let client = GatewayClient::new(reader, Client::default(), gateway_url);
+        let mut client = GatewayClient::new(reader, Client::default(), gateway_url);
 
         let write_result = writer
             .send_message(topic, &message, &data)
@@ -309,7 +324,7 @@ mod tests {
         let actual_result = client.forward_message().await;
 
         writer.shutdown().unwrap();
-        client.reader.shutdown().unwrap();
+        client.shutdown().unwrap();
 
         match expected_result {
             Ok(expected_forward_result) => {

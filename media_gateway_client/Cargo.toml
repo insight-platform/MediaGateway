@@ -17,6 +17,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
 twelf = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+tokio-timerfd = { workspace = true }
+log = { workspace = true }
 
 media_gateway_common = { path = "../media_gateway_common" }
 
