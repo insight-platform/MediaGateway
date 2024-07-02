@@ -17,10 +17,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
 twelf = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
-tokio-timerfd = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "signal", "sync"] }
 log = { workspace = true }
-
+env_logger = { workspace = true }
 media_gateway_common = { path = "../media_gateway_common" }
 
 reqwest = { version = "0.12.5", features = ["native-tls"] }

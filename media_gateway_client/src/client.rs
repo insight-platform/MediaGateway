@@ -2,17 +2,14 @@
 //!
 //! The module provides [`GatewayClient`] and [`ForwardResult`].
 use std::fs;
-use std::time::Duration;
 
 use anyhow::anyhow;
 use http_auth_basic::Credentials;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{Certificate, Client, Identity, StatusCode};
-use savant_core::transport::zeromq::{NonBlockingReader, ReaderResult};
 
 use media_gateway_common::model::Media;
 
-use crate::client::ForwardResult::ReadError;
 use crate::configuration::GatewayClientConfiguration;
 
 /// The result of [`GatewayClient::forward_message`] method.
@@ -26,10 +23,6 @@ pub enum ForwardResult {
     /// Represents the error caused by
     /// [`WriterResult::AckTimeout`](savant_core::transport::zeromq::WriterResult::AckTimeout)
     AckTimeout,
-    /// Represents the error caused by
-    /// [`ReaderResult`] except
-    /// [`Message`](savant_core::transport::zeromq::ReaderResult::Message)
-    ReadError(ReaderResult),
 }
 
 /// The client for the media gateway server.
@@ -50,7 +43,6 @@ pub enum ForwardResult {
 /// [`GatewayClient::shutdown`] method should be called to release resources.
 pub struct GatewayClient {
     url: String,
-    reader: NonBlockingReader,
     client: Client,
 }
 
@@ -67,75 +59,36 @@ impl GatewayClient {
     ///
     /// Before calling this method the reader must be started and the client must be fully
     /// configured (SSL certificates, [`AUTHORIZATION`] header as a default headers).
-    pub fn new(reader: NonBlockingReader, client: Client, url: String) -> Self {
-        Self {
-            reader,
-            client,
-            url,
-        }
+    pub fn new(client: Client, url: String) -> Self {
+        Self { client, url }
     }
 
     /// Receives the messages using [`SyncReader`] and sends it to the media gateway server.
-    pub async fn forward_message(&self) -> anyhow::Result<ForwardResult> {
-        loop {
-            let reader_result = self.reader.try_receive();
-            if reader_result.is_none() {
-                log::trace!("No message received, sleeping for 1ms.");
-                tokio_timerfd::sleep(Duration::from_millis(1)).await?;
-                continue;
-            }
-            let reader_result = reader_result.unwrap()?;
-            return match reader_result {
-                ReaderResult::Message {
-                    message,
-                    topic,
-                    data,
-                    ..
-                } => {
-                    let media = Media {
-                        message: Option::from(savant_protobuf::generated::Message::from(
-                            message.as_ref(),
-                        )),
-                        topic,
-                        data,
-                    };
-                    let data = media.to_proto()?;
-                    let send_result = self
-                        .client
-                        .post(&self.url)
-                        .body(data)
-                        .header(CONTENT_TYPE, "application/protobuf")
-                        .send()
-                        .await;
-                    match send_result {
-                        Ok(response) => match response.status() {
-                            StatusCode::OK => Ok(ForwardResult::Success),
-                            StatusCode::GATEWAY_TIMEOUT => Ok(ForwardResult::SendTimeout),
-                            StatusCode::BAD_GATEWAY => Ok(ForwardResult::AckTimeout),
-                            status_code => Err(anyhow!("Invalid HTTP status: {}", status_code)),
-                        },
-                        Err(e) => {
-                            Err(anyhow!("Error while sending a message").context(e.to_string()))
-                        }
-                    }
-                }
-                _ => Ok(ReadError(reader_result)),
-            };
+    pub async fn forward_message(&self, media: &Media) -> anyhow::Result<ForwardResult> {
+        let data = media.to_proto()?;
+        let send_result = self
+            .client
+            .post(&self.url)
+            .body(data)
+            .header(CONTENT_TYPE, "application/protobuf")
+            .send()
+            .await;
+        match send_result {
+            Ok(response) => match response.status() {
+                StatusCode::OK => Ok(ForwardResult::Success),
+                StatusCode::GATEWAY_TIMEOUT => Ok(ForwardResult::SendTimeout),
+                StatusCode::BAD_GATEWAY => Ok(ForwardResult::AckTimeout),
+                status_code => Err(anyhow!("Invalid HTTP status: {}", status_code)),
+            },
+            Err(e) => Err(anyhow!("Error while sending a message").context(e.to_string())),
         }
-    }
-
-    /// Releases resources including the underlying [`SyncReader`].
-    pub fn shutdown(&mut self) -> anyhow::Result<()> {
-        self.reader.shutdown()
     }
 }
 
 impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
     type Error = anyhow::Error;
 
-    fn try_from(configuration: &GatewayClientConfiguration) -> anyhow::Result<Self> {
-        let reader = NonBlockingReader::try_from(&configuration.in_stream)?;
-
+    fn try_from(configuration: &GatewayClientConfiguration) -> Result<Self, Self::Error> {
         let mut client_builder = Client::builder().tls_built_in_root_certs(true);
 
         client_builder = if let Some(ssl_conf) = &configuration.ssl {
@@ -176,7 +129,6 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
         };
 
         Ok(GatewayClient::new(
-            reader,
             client_builder.build()?,
             configuration.url.clone(),
         ))
@@ -189,10 +141,6 @@ mod tests {
     use rand::Rng;
     use reqwest::{Client, StatusCode};
     use savant_core::message::Message;
-    use savant_core::transport::zeromq::{
-        NonBlockingReader, ReaderConfigBuilder, ReaderResult, SyncWriter, WriterConfigBuilder,
-        WriterResult,
-    };
     use wiremock::matchers::{body_bytes, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -234,32 +182,6 @@ mod tests {
         forward_test(None, Err(anyhow!("Error while sending a message"))).await
     }
 
-    #[tokio::test]
-    async fn forward_message_read_error() {
-        let ipc = format!("ipc:///tmp/test{}", rand::random::<u16>());
-        let mut reader = NonBlockingReader::new(
-            &ReaderConfigBuilder::default()
-                .url(format!("sub+connect:{}", ipc).as_str())
-                .unwrap()
-                .build()
-                .unwrap(),
-            1,
-        )
-        .unwrap();
-        reader.start().unwrap();
-
-        let gateway_url = format!(
-            "http://127.0.0.1:{}/",
-            rand::thread_rng().gen_range(40000..50000)
-        );
-        let client = GatewayClient::new(reader, Client::default(), gateway_url);
-        let actual_result = client.forward_message().await;
-        assert!(matches!(
-            actual_result,
-            Ok(ForwardResult::ReadError(ReaderResult::Timeout))
-        ));
-    }
-
     async fn forward_test(
         http_status: Option<StatusCode>,
         expected_result: anyhow::Result<ForwardResult>,
@@ -293,38 +215,9 @@ mod tests {
             )
         };
 
-        let ipc = format!("ipc:///tmp/test{}", rand::random::<u16>());
-        let writer = SyncWriter::new(
-            &WriterConfigBuilder::default()
-                .url(format!("pub+bind:{}", ipc).as_str())
-                .unwrap()
-                .build()
-                .unwrap(),
-        )
-        .unwrap();
+        let client = GatewayClient::new(Client::default(), gateway_url);
 
-        let mut reader = NonBlockingReader::new(
-            &ReaderConfigBuilder::default()
-                .url(format!("sub+connect:{}", ipc).as_str())
-                .unwrap()
-                .build()
-                .unwrap(),
-            1,
-        )
-        .unwrap();
-        reader.start().unwrap();
-
-        let mut client = GatewayClient::new(reader, Client::default(), gateway_url);
-
-        let write_result = writer
-            .send_message(topic, &message, &data)
-            .expect("writing failed");
-        assert!(matches!(write_result, WriterResult::Success { .. }));
-
-        let actual_result = client.forward_message().await;
-
-        writer.shutdown().unwrap();
-        client.shutdown().unwrap();
+        let actual_result = client.forward_message(&media).await;
 
         match expected_result {
             Ok(expected_forward_result) => {
@@ -339,55 +232,6 @@ mod tests {
                     )),
                     ForwardResult::AckTimeout => {
                         assert!(matches!(expected_forward_result, ForwardResult::AckTimeout))
-                    }
-                    ForwardResult::ReadError(reader_result) => {
-                        if let ForwardResult::ReadError(expected_read_error) =
-                            expected_forward_result
-                        {
-                            match reader_result {
-                                ReaderResult::Message { .. } => panic!(
-                                    "Expected: {:?} but got ReaderResult::Message{{..}}",
-                                    expected_read_error
-                                ),
-                                ReaderResult::Timeout => {
-                                    assert!(matches!(expected_read_error, ReaderResult::Timeout))
-                                }
-                                ReaderResult::PrefixMismatch { topic, routing_id } => {
-                                    let actual_topic = topic;
-                                    let actual_routing_id = routing_id;
-                                    assert!(matches!(
-                                        expected_read_error,
-                                        ReaderResult::PrefixMismatch {topic, routing_id}
-                                            if topic == actual_topic
-                                                && routing_id == actual_routing_id
-                                    ))
-                                }
-                                ReaderResult::RoutingIdMismatch { topic, routing_id } => {
-                                    let actual_topic = topic;
-                                    let actual_routing_id = routing_id;
-                                    assert!(matches!(
-                                        expected_read_error,
-                                        ReaderResult::RoutingIdMismatch {topic, routing_id}
-                                            if topic == actual_topic
-                                                && routing_id == actual_routing_id
-                                    ))
-                                }
-                                ReaderResult::TooShort(x) => assert!(matches!(
-                                    expected_read_error,
-                                    ReaderResult::TooShort(y) if x == y
-                                )),
-                                ReaderResult::Blacklisted(x) => assert!(matches!(
-                                    expected_read_error,
-                                    ReaderResult::Blacklisted(y) if x == y
-                                )),
-                            }
-                        } else {
-                            panic!(
-                                "Expected: {:?}, actual: {:?}",
-                                expected_forward_result,
-                                ForwardResult::ReadError(reader_result)
-                            );
-                        }
                     }
                 }
             }

@@ -76,7 +76,7 @@ mod server;
 #[actix_web::main]
 async fn main() -> Result<()> {
     println!("--------------------------------------------------------");
-    println!("                 In-Sight Media Gateway                 ");
+    println!("             In-Sight Media Gateway Server              ");
     println!("GitHub: https://github.com/insight-platform/MediaGateway");
     println!("This program is licensed under the BSL-1.1 license      ");
     println!("      For more information, see the LICENSE file        ");
