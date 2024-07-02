@@ -1,5 +1,5 @@
 [package]
-name = "media-gateway-client"
+name = "media_gateway_client"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

@@ -24,6 +24,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use log::info;
+use tokio::signal::{ctrl_c, unix};
 
 use crate::configuration::GatewayClientConfiguration;
 use crate::service::GatewayClientService;
@@ -54,7 +55,15 @@ async fn main() -> Result<()> {
     let service_to_stop = service.clone();
 
     tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.unwrap();
+        let mut interrupt_signal = unix::signal(unix::SignalKind::interrupt()).unwrap();
+        let mut shutdown_signal = unix::signal(unix::SignalKind::terminate()).unwrap();
+        let mut quit_signal = unix::signal(unix::SignalKind::quit()).unwrap();
+        tokio::select! {
+            _ = ctrl_c() => {},
+            _ = interrupt_signal.recv() => {}
+            _ = shutdown_signal.recv() => {}
+            _ = quit_signal.recv() => {}
+        }
         service_to_stop
             .stop()
             .expect("Error while stopping the service");
