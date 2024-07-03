@@ -1,0 +1,16 @@
+{
+  "url": "http://media-gateway-server:8080",
+  "in_stream": {
+    "url": "rep+bind:ipc:///tmp/client",
+    "receive_timeout": {
+      "secs": 10,
+      "nanos": 0
+    },
+    "receive_hwm": 1000,
+    "topic_prefix_spec": {
+      "none": null
+    },
+    "source_cache_size": 1000,
+    "inflight_ops": 100
+  }
+}

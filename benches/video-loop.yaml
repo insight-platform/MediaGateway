@@ -12,6 +12,7 @@ services:
       - 8080:8080
     volumes:
       - /tmp:/tmp
+      - ./config/server_config.json:/opt/etc/config.json
 
   media-gateway-client:
     image: media-gateway-client:latest
@@ -21,10 +22,9 @@ services:
           - media-gateway-client
     depends_on:
       - media-gateway-server
-    environment:
-      - GATEWAY_URL=http://media-gateway-server:8080
     volumes:
       - /tmp:/tmp
+      - ./config/client_config.json:/opt/etc/config.json
 
   source:
     image: ghcr.io/insight-platform/savant-adapters-gstreamer:latest
@@ -36,7 +36,7 @@ services:
     depends_on:
       - media-gateway-client
     environment:
-      - ZMQ_ENDPOINT=pub+connect:ipc:///tmp/client
+      - ZMQ_ENDPOINT=req+connect:ipc:///tmp/client
       - LOCATION=/data/file_example_MP4_1280_10MG.mp4
       - SOURCE_ID=video-loop-benchmark
       - DOWNLOAD_PATH=/tmp/download
