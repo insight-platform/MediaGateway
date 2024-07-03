@@ -3,12 +3,12 @@
   "port": 8080,
   "ssl": {
     "server": {
-      "certificate": "cert.pem",
-      "certificate_key": "cert_key.pem"
+      "certificate": "server-cert.pem",
+      "certificate_key": "server-key.pem"
     }
   },
   "out_stream": {
-    "url": "pub+bind:ipc:///tmp/test",
+    "url": "pub+bind:ipc:///tmp/server",
     "send_timeout": {
       "secs": 1,
       "nanos": 0

@@ -1,13 +1,17 @@
 {
   "ip": "0.0.0.0",
   "port": 8080,
-  "auth": {
-    "basic": [
-      {
-        "id": "user",
-        "password": "password"
-      }
-    ]
+  "ssl": {
+    "server": {
+      "certificate": "server-cert.pem",
+      "certificate_key": "server-key.pem"
+    },
+    "client": {
+      "certificates": "rootCA.pem",
+      "crls": [
+        "clr.pem"
+      ]
+    }
   },
   "out_stream": {
     "url": "pub+bind:ipc:///tmp/server",
@@ -23,6 +27,6 @@
     "receive_retries": 3,
     "send_hwm": 1000,
     "receive_hwm": 1000,
-    "fix_ipc_permissions": 511
+    "inflight_ops": 100
   }
 }

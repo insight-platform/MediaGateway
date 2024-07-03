@@ -10,6 +10,7 @@
 //!
 //! Following features are supported:
 //! * SSL (including a self-signed PEM encoded certificate)
+//! * client certificate authentication
 //! * basic authentication with an in-memory user data storage
 //!
 //! # API
