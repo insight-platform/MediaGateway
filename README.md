@@ -19,6 +19,21 @@ and `out_stream` in the server configuration corresponds to
 [WriterConfig](https://github.com/insight-platform/savant-rs/blob/main/savant_core/src/transport/zeromq/writer_config.rs).
 Examples of configuration files can be found in [samples](samples) directory.
 
+The server has a health endpoint.
+
+```
+ GET /health HTTP/1.1
+ Host: <host>
+ ```
+
+If the server is healthy an HTTP response with 200 OK status code and the body as below will be returned.
+
+ ```json
+ {
+  "status": "healthy"
+}
+ ```
+
 ## Docker
 
 Both server and client can be run as Docker containers.
