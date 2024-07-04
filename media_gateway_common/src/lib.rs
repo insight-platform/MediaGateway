@@ -2,3 +2,5 @@
 pub mod model;
 
 pub mod configuration;
+
+pub mod statistics;

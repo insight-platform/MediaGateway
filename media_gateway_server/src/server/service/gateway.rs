@@ -5,17 +5,23 @@ use savant_core::message::Message;
 use savant_core::transport::zeromq::{SyncWriter, WriterResult};
 
 use media_gateway_common::model::Media;
+use media_gateway_common::statistics::StatisticsService;
 
 use crate::server::configuration::GatewayConfiguration;
 
-#[derive(Clone)]
+const STAT_STAGE_NAME: &str = "server-relay";
+
 pub struct GatewayService {
     writer: SyncWriter,
+    statistics_service: Option<StatisticsService>,
 }
 
 impl GatewayService {
-    pub fn new(writer: SyncWriter) -> Self {
-        Self { writer }
+    pub fn new(writer: SyncWriter, statistics_service: Option<StatisticsService>) -> Self {
+        Self {
+            writer,
+            statistics_service,
+        }
     }
     pub fn process(&self, media: ProtoBuf<Media>) -> HttpResponse {
         let topic_result = std::str::from_utf8(&media.topic);
@@ -31,6 +37,17 @@ impl GatewayService {
         if message_result.is_err() {
             return HttpResponse::BadRequest().finish();
         }
+        let id = match self.statistics_service.as_ref() {
+            Some(service) => match service.register_message_start() {
+                Ok(id) => Some(id),
+                Err(e) => {
+                    log::warn!("Error while starting message statistics: {:?}", e);
+                    None
+                }
+            },
+            None => None,
+        };
+
         let message = message_result.unwrap();
 
         debug!(
@@ -47,7 +64,7 @@ impl GatewayService {
             .collect::<Vec<&[u8]>>();
 
         let result = self.writer.send_message(topic, &message, &data);
-        match result {
+        let response = match result {
             Ok(WriterResult::SendTimeout) => HttpResponse::GatewayTimeout().finish(),
             Ok(WriterResult::AckTimeout(_)) => HttpResponse::BadGateway().finish(),
             Ok(WriterResult::Ack { .. }) => HttpResponse::Ok().finish(),
@@ -56,7 +73,18 @@ impl GatewayService {
                 error!("Failed to send a message: {:?}", e);
                 HttpResponse::InternalServerError().finish()
             }
+        };
+        if let Some(stat_id) = id {
+            if let Err(e) = self
+                .statistics_service
+                .as_ref()
+                .unwrap()
+                .register_message_end(stat_id)
+            {
+                log::warn!("Error while ending message statistics: {:?}", e)
+            }
         }
+        response
     }
 }
 
@@ -65,7 +93,15 @@ impl TryFrom<&GatewayConfiguration> for GatewayService {
 
     fn try_from(configuration: &GatewayConfiguration) -> anyhow::Result<Self> {
         let writer = SyncWriter::try_from(&configuration.out_stream)?;
-        Ok(GatewayService::new(writer))
+        let statistics_service = if let Some(statistics_config) = &configuration.statistics {
+            Some(StatisticsService::try_from((
+                statistics_config,
+                STAT_STAGE_NAME,
+            ))?)
+        } else {
+            None
+        };
+        Ok(GatewayService::new(writer, statistics_service))
     }
 }
 
@@ -188,7 +224,10 @@ mod tests {
         )
         .unwrap();
         writer.is_started();
-        GatewayService { writer }
+        GatewayService {
+            writer,
+            statistics_service: None,
+        }
     }
 
     fn new_reader(url: &str) -> SyncReader {

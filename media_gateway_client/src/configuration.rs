@@ -7,7 +7,7 @@ use savant_core::transport::zeromq::{NonBlockingReader, ReaderConfigBuilder};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
 
-use media_gateway_common::configuration::BasicUser;
+use media_gateway_common::configuration::{BasicUser, StatisticsConfiguration};
 
 /// SSL settings to connect to the media gateway server.
 #[derive(Debug, Serialize, Deserialize)]
@@ -53,6 +53,8 @@ pub struct GatewayClientConfiguration {
     pub ssl: Option<SslConfiguration>,
     /// Authentication settings
     pub auth: Option<AuthConfiguration>,
+    /// Statistics settings
+    pub statistics: Option<StatisticsConfiguration>,
 }
 
 impl GatewayClientConfiguration {

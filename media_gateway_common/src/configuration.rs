@@ -22,3 +22,14 @@ impl fmt::Debug for BasicUser {
             .finish()
     }
 }
+
+/// Statistics settings. At least one of frame_period and timestamp_period should be specified.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StatisticsConfiguration {
+    /// Statistics based on frame period
+    pub frame_period: Option<i64>,
+    /// Statistics based on timestamp period
+    pub timestamp_period: Option<i64>,
+    /// A size of a history to be stored
+    pub history_size: usize,
+}

@@ -4,7 +4,7 @@ use savant_core::transport::zeromq::{SyncWriter, WriterConfigBuilder};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
 
-use media_gateway_common::configuration::BasicUser;
+use media_gateway_common::configuration::{BasicUser, StatisticsConfiguration};
 
 #[config]
 #[derive(Debug, Serialize)]
@@ -14,6 +14,7 @@ pub struct GatewayConfiguration {
     pub(crate) ssl: Option<SslConfiguration>,
     pub(crate) out_stream: SinkConfiguration,
     pub(crate) auth: Option<AuthConfiguration>,
+    pub(crate) statistics: Option<StatisticsConfiguration>,
 }
 
 impl GatewayConfiguration {

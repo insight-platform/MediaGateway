@@ -10,6 +10,7 @@ Following optional features are supported:
 * basic authentication
 * HTTPS (including a self-signed PEM encoded certificate)
 * client certificate authentication
+* FPS statistics logging (by frame or timestamp period)
 
 To read from and to write to ZeroMQ [savant_core](https://github.com/insight-platform/savant-rs) crate is used.
 

@@ -19,6 +19,7 @@
   },
   "statistics": {
     "frame_period": 1000,
+    "timestamp_period": 1000,
     "history_size": 1000
   }
 }
