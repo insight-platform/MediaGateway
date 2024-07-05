@@ -9,7 +9,9 @@ Following optional features are supported:
 
 * basic authentication
 * HTTPS (including a self-signed PEM encoded certificate)
-* client certificate authentication
+* client certificate authentication (for the server
+  [X509_LOOKUP_hash_dir method](https://www.openssl.org/docs/man1.1.1/man3/X509_LOOKUP_hash_dir.html) is used to load
+  certificates and CRLs)
 * FPS statistics logging (by frame or timestamp period)
 
 To read from and to write to ZeroMQ [savant_core](https://github.com/insight-platform/savant-rs) crate is used.

@@ -7,10 +7,7 @@
       "certificate_key": "server-key.pem"
     },
     "client": {
-      "certificates": "rootCA.pem",
-      "crls": [
-        "clr.pem"
-      ]
+      "certificate_directory": "client-certs"
     }
   },
   "out_stream": {

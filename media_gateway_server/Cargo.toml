@@ -22,11 +22,10 @@ env_logger = { workspace = true }
 
 media_gateway_common = { path = "../media_gateway_common" }
 
-actix-web = { version = "4", features = ["rustls-0_22"] }
+actix-web = { version = "4", features = ["openssl"] }
 actix-protobuf = "0.10"
 actix-web-httpauth = "0.8.2"
-rustls = "0.22.4"
-rustls-pemfile = "2.1.2"
+openssl = "0.10"
 
 [dev-dependencies]
 savant-protobuf = { workspace = true }

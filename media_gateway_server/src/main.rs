@@ -49,9 +49,6 @@
 //! [`WriterConfigBuilder`](savant_core::transport::zeromq::WriterConfigBuilder).
 use std::collections::HashMap;
 use std::env::args;
-use std::fs;
-use std::io::BufReader;
-use std::sync::Arc;
 
 use actix_web::middleware::Condition;
 use actix_web::web::scope;
@@ -59,9 +56,8 @@ use actix_web::{web, App, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use anyhow::{anyhow, Result};
 use log::info;
-use rustls::pki_types::CertificateRevocationListDer;
-use rustls::server::{NoClientAuth, WebPkiClientVerifier};
-use rustls::RootCertStore;
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod, SslVerifyMode};
+use openssl::x509::store::{X509Lookup, X509StoreBuilder};
 use tokio::sync::Mutex;
 
 use server::configuration::GatewayConfiguration;
@@ -126,48 +122,32 @@ async fn main() -> Result<()> {
     });
 
     http_server = if let Some(ssl_conf) = conf.ssl {
-        let client_verifier = if let Some(client_ssl_conf) = &ssl_conf.client {
-            let mut cert_store = RootCertStore::empty();
-            let cert_file = fs::File::open(&client_ssl_conf.certificates).unwrap();
-            let mut cert_reader = BufReader::new(cert_file);
-            for cert in rustls_pemfile::certs(&mut cert_reader) {
-                cert_store.add(cert.unwrap()).unwrap()
-            }
+        let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
+        builder.set_private_key_file(ssl_conf.server.certificate_key, SslFiletype::PEM)?;
+        builder.set_certificate_chain_file(ssl_conf.server.certificate)?;
 
-            let mut client_verifier_builder = WebPkiClientVerifier::builder(cert_store.into());
-            client_verifier_builder = if let Some(clr_files) = &client_ssl_conf.crls {
-                let crls = clr_files
-                    .iter()
-                    .map(|clr_file| CertificateRevocationListDer::from(fs::read(clr_file).unwrap()))
-                    .collect::<Vec<_>>();
+        builder = if let Some(client_ssl_conf) = &ssl_conf.client {
+            let mut cert_store_builder = X509StoreBuilder::new().unwrap();
 
-                client_verifier_builder.with_crls(crls)
-            } else {
-                client_verifier_builder
-            };
-            client_verifier_builder.build()?
+            let lookup_method = X509Lookup::hash_dir();
+            let lookup = cert_store_builder.add_lookup(lookup_method).unwrap();
+            lookup
+                .add_dir(&client_ssl_conf.certificate_directory, SslFiletype::PEM)
+                .unwrap();
+
+            builder
+                .set_verify_cert_store(cert_store_builder.build())
+                .unwrap();
+            builder.set_verify(SslVerifyMode::from_iter(vec![
+                SslVerifyMode::PEER,
+                SslVerifyMode::FAIL_IF_NO_PEER_CERT,
+            ]));
+            builder
         } else {
-            Arc::new(NoClientAuth)
+            builder
         };
 
-        let mut certs_file = BufReader::new(fs::File::open(&ssl_conf.server.certificate).unwrap());
-        let mut key_file =
-            BufReader::new(fs::File::open(&ssl_conf.server.certificate_key).unwrap());
-        let tls_certs = rustls_pemfile::certs(&mut certs_file)
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
-        let tls_key = rustls_pemfile::pkcs8_private_keys(&mut key_file)
-            .next()
-            .unwrap()
-            .unwrap();
-
-        let tls_config = rustls::ServerConfig::builder()
-            .with_client_cert_verifier(client_verifier)
-            .with_single_cert(tls_certs, rustls::pki_types::PrivateKeyDer::Pkcs8(tls_key))
-            .unwrap();
-        http_server
-            .bind_rustls_0_22(bind_address, tls_config)
-            .unwrap()
+        http_server.bind_openssl(bind_address, builder).unwrap()
     } else {
         http_server.bind(bind_address).unwrap()
     };

@@ -38,8 +38,7 @@ pub struct ServerSslConfiguration {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientSslConfiguration {
-    pub certificates: String,
-    pub crls: Option<Vec<String>>,
+    pub certificate_directory: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
