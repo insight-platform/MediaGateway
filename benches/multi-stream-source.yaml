@@ -1,0 +1,50 @@
+networks:
+  multi-stream-source:
+
+services:
+  media-gateway-server:
+    image: media-gateway-server:latest
+    networks:
+      multi-stream-source:
+        aliases:
+          - media-gateway-server
+    ports:
+      - 8080:8080
+    volumes:
+      - /tmp:/tmp
+      - ./config/server_ssl_config.json:/opt/etc/config.json
+      - ./certs/ssl:/etc/certs
+
+  media-gateway-client:
+    image: media-gateway-client:latest
+    networks:
+      multi-stream-source:
+        aliases:
+          - media-gateway-client
+    depends_on:
+      - media-gateway-server
+    volumes:
+      - /tmp:/tmp
+      - ./config/client_ssl_config.json:/opt/etc/config.json
+      - ./certs/ssl:/etc/certs
+
+  source:
+    image: ghcr.io/insight-platform/savant-adapters-gstreamer:latest
+    entrypoint: /opt/savant/adapters/gst/sources/multi_stream.sh
+    networks:
+      multi-stream-source:
+        aliases:
+          - source
+    depends_on:
+      - media-gateway-client
+    environment:
+      - ZMQ_ENDPOINT=req+connect:ipc:///tmp/client
+      - LOCATION=/data/file_example_MP4_1280_10MG.mp4
+      - SOURCE_ID=multi-stream-source-benchmark
+      - DOWNLOAD_PATH=/tmp/download
+      - SYNC_OUTPUT=true
+      - SOURCE_ID_PATTERN='%d'
+      - NUMBER_OF_STREAMS=128
+    volumes:
+      - /tmp:/tmp
+      - ./assets/file_example_MP4_1280_10MG.mp4:/data/file_example_MP4_1280_10MG.mp4
