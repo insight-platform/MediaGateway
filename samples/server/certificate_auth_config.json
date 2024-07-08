@@ -1,0 +1,29 @@
+{
+  "ip": "0.0.0.0",
+  "port": 8080,
+  "ssl": {
+    "server": {
+      "certificate": "server-cert.pem",
+      "certificate_key": "server-key.pem"
+    },
+    "client": {
+      "certificate_directory": "client-certs"
+    }
+  },
+  "out_stream": {
+    "url": "pub+bind:ipc:///tmp/server",
+    "send_timeout": {
+      "secs": 1,
+      "nanos": 0
+    },
+    "send_retries": 3,
+    "receive_timeout": {
+      "secs": 1,
+      "nanos": 0
+    },
+    "receive_retries": 3,
+    "send_hwm": 1000,
+    "receive_hwm": 1000,
+    "inflight_ops": 100
+  }
+}

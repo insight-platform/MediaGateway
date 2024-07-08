@@ -1,0 +1,29 @@
+{
+  "url": "https://media-gateway-server:8080",
+  "ssl": {
+    "server": {
+      "certificate": "/etc/certs/ca.crt"
+    },
+    "client": {
+      "certificate": "/etc/certs/client.crt",
+      "certificate_key": "/etc/certs/client.key"
+    }
+  },
+  "in_stream": {
+    "url": "rep+bind:ipc:///tmp/client",
+    "receive_timeout": {
+      "secs": 10,
+      "nanos": 0
+    },
+    "receive_hwm": 1000,
+    "topic_prefix_spec": {
+      "none": null
+    },
+    "source_cache_size": 1000,
+    "inflight_ops": 100
+  },
+  "statistics": {
+    "frame_period": 1000,
+    "history_size": 1000
+  }
+}

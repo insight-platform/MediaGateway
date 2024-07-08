@@ -1,0 +1,21 @@
+{
+  "url": "${GATEWAY_URL:-http://localhost:8080/}",
+  "in_stream": {
+    "url": "sub+bind:ipc:///tmp/client",
+    "receive_timeout": {
+      "secs": 10,
+      "nanos": 0
+    },
+    "receive_hwm": 1000,
+    "topic_prefix_spec": {
+      "none": null
+    },
+    "source_cache_size": 1000,
+    "inflight_ops": 100
+  },
+  "statistics": {
+    "frame_period": 1000,
+    "timestamp_period": 1000,
+    "history_size": 1000
+  }
+}

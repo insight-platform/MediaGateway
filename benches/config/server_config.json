@@ -1,0 +1,24 @@
+{
+  "ip": "0.0.0.0",
+  "port": 8080,
+  "out_stream": {
+    "url": "pub+bind:ipc:///tmp/server",
+    "send_timeout": {
+      "secs": 1,
+      "nanos": 0
+    },
+    "send_retries": 3,
+    "receive_timeout": {
+      "secs": 1,
+      "nanos": 0
+    },
+    "receive_retries": 3,
+    "send_hwm": 1000,
+    "receive_hwm": 1000,
+    "fix_ipc_permissions": 511
+  },
+  "statistics": {
+    "frame_period": 1000,
+    "history_size": 1000
+  }
+}

@@ -1,0 +1,23 @@
+[package]
+name = "media_gateway_common"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+savant_core = { workspace = true }
+savant-protobuf = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+
+prost = "0.12"
+prost-types = "0.12"
+
+[build-dependencies]
+prost-build = "0.12"
