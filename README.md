@@ -43,12 +43,6 @@ Both server and client can be run as Docker containers.
 
 ### Server
 
-To build Docker image for the server
-
-```bash
-docker build --build-arg="TYPE=server" -t media-gateway-server:latest .
-```
-
 To run the server with [the default configuration](samples/server/default_config.json) and to mount `/tmp` directory and
 publish the port from the default configuration
 
@@ -56,7 +50,7 @@ publish the port from the default configuration
 docker run \
  -v /tmp:/tmp \
  -p 8080:8080 \
- media-gateway-server:latest
+ ghcr.io/insight-platform/media-gateway-server:latest
 ```
 
 To run the server with another configuration (`/home/user/server_config.json`)
@@ -65,17 +59,11 @@ To run the server with another configuration (`/home/user/server_config.json`)
 docker run \
  -v /home/user/server_config.json:/opt/etc/custom_config.json \
  -p HOST_PORT:CONFIG_PORT \
- media-gateway-server:latest \
+ ghcr.io/insight-platform/media-gateway-server:latest \
  /opt/etc/custom_config.json
 ```
 
 ### Client
-
-To build Docker image for the client
-
-```bash
-docker build --build-arg="TYPE=client" -t media-gateway-client:latest .
-```
 
 To run the client with [the default configuration](samples/client/default_config.json) and to mount `/tmp` directory
 
@@ -83,7 +71,7 @@ To run the client with [the default configuration](samples/client/default_config
 docker run \
  -v /tmp:/tmp \
   -e "GATEWAY_URL=<GATEWAY_URL>" \
- media-gateway-client:latest
+ ghcr.io/insight-platform/media-gateway-client:latest
 ```
 
 where `<GATEWAY_URL>` is the server URL, e.g. `http://192.168.0.100:8080`
@@ -93,6 +81,6 @@ To run the server with another configuration (`/home/user/client_config.json`)
 ```bash
 docker run \
  -v /home/user/client_config.json:/opt/etc/custom_config.json \
- media-gateway-client:latest \
+ ghcr.io/insight-platform/media-gateway-client:latest \
  /opt/etc/custom_config.json
 ```
