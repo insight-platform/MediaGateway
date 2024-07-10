@@ -255,8 +255,8 @@ At least one of ``frame_period`` and ``timestamp_period`` should be specified.
       - yes
 
 
-Environment Variables in Configuration File
--------------------------------------------
+Environment variables in configuration files
+--------------------------------------------
 
 You can use environment variables in the configuration file. The syntax is ``${VAR_NAME:-default_value}``. If the environment variable is not set, the default value will be used.
 
