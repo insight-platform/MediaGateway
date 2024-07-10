@@ -27,3 +27,10 @@ Features
    :caption: Reference
 
    reference/0_server_api
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Cookbook
+
+   cookbook/0_tls
+   cookbook/1_video_loop
