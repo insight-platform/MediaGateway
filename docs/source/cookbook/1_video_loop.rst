@@ -13,7 +13,7 @@ Preparation
 Server
 ------
 
-To run Media Gateway server with the default configuration
+To run Media Gateway server
 
 .. code-block:: bash
 
@@ -52,7 +52,7 @@ To run Media Gateway server with the default configuration
 Client
 ------
 
-To run Media Gateway client with the default configuration
+To run Media Gateway client
 
 .. code-block:: bash
 
