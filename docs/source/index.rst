@@ -16,14 +16,21 @@ Features
 * FPS statistics logging (by frame or timestamp period)
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Getting Started:
+   :maxdepth: 1
+   :caption: Getting Started
 
    getting_started/0_configuration
    getting_started/1_deployment
 
 .. toctree::
    :maxdepth: 1
-   :caption: Reference:
+   :caption: Reference
 
    reference/0_server_api
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Cookbook
+
+   cookbook/0_tls
+   cookbook/1_video_loop

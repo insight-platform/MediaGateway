@@ -58,6 +58,7 @@ use anyhow::{anyhow, Result};
 use log::info;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod, SslVerifyMode};
 use openssl::x509::store::{X509Lookup, X509StoreBuilder};
+use openssl::x509::verify::X509VerifyFlags;
 use tokio::sync::Mutex;
 
 use server::configuration::GatewayConfiguration;
@@ -133,6 +134,13 @@ async fn main() -> Result<()> {
             let lookup = cert_store_builder.add_lookup(lookup_method).unwrap();
             lookup
                 .add_dir(&client_ssl_conf.certificate_directory, SslFiletype::PEM)
+                .unwrap();
+
+            cert_store_builder
+                .set_flags(X509VerifyFlags::from_iter(vec![
+                    X509VerifyFlags::CRL_CHECK,
+                    X509VerifyFlags::CRL_CHECK_ALL,
+                ]))
                 .unwrap();
 
             builder
