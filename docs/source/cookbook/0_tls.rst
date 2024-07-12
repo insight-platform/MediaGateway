@@ -15,7 +15,8 @@ Media Gateway supports both self-signed and signed by CA server certificates. Ce
 
 The protocol in ``url`` field in the client configuration must be updated to ``https``.
 
-* a self-signed server certificate
+Self-signed server certificates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``server.crt`` is a file with the server certificate in PEM format.
 
@@ -40,7 +41,8 @@ The protocol in ``url`` field in the client configuration must be updated to ``h
         }
     }
 
-* a signed by a private CA server certificate
+Signed by a private CA server certificates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``server.crt`` is a file with the server certificate in PEM format.
 
@@ -67,7 +69,8 @@ The protocol in ``url`` field in the client configuration must be updated to ``h
         }
     }
 
-* a signed by a public CA server certificate
+Signed by a public CA server certificates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``server.crt`` is a file with a sequence of certificates, the first being the leaf certificate, and the remainder forming the chain of certificates up to and including the trusted root certificate.
 
@@ -190,7 +193,7 @@ To set up a private CA and generate a certificate
     cert_opt        = ca_default
 
     default_days     = 365
-    default_crl_hours = 1
+    default_crl_days = 30
     default_md       = default
     preserve         = no
     policy           = policy_any

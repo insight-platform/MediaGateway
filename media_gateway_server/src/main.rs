@@ -44,7 +44,7 @@
 //! {"status":"healthy"}
 //! ```
 //! # Examples
-//! See [configuration files](https://github.com/insight-platform/MediaGateway/blob/main/samples/server).
+//! See [configuration files](https://github.com/insight-platform/MediaGateway/blob/main/configuration/samples/server).
 //! `out_stream` fields represents configuration for
 //! [`WriterConfigBuilder`](savant_core::transport::zeromq::WriterConfigBuilder).
 use std::collections::HashMap;

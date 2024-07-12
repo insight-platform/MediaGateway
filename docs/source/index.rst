@@ -33,4 +33,4 @@ Features
    :caption: Cookbook
 
    cookbook/0_tls
-   cookbook/1_video_loop
+   cookbook/1_usage_example

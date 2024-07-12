@@ -19,5 +19,5 @@ help:
 	rm -fr "$(BUILDDIR)"
 	rm -fr source/_download
 	mkdir source/_download
-	tar -czvf source/_download/video_loop_example.tar.gz -C ../samples/video_loop/ .
+	tar -czvf source/_download/e2e_usage_video_loop_ao_rtsp.tar.gz -C ../samples/e2e_usage_video_loop_ao_rtsp/ .
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)

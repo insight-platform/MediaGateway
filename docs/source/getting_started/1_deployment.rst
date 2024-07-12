@@ -21,7 +21,7 @@ Common environment variables
 Server
 ------
 
-To run the server with `the default configuration <https://github.com/insight-platform/MediaGateway/tree/main/samples/server/default_config.json>`__ and to mount ``/tmp`` directory and publish the port from the default configuration
+To run the server with `the default configuration <https://github.com/insight-platform/MediaGateway/tree/main/samples/configuration/server/default_config.json>`__ and to mount ``/tmp`` directory and publish the port from the default configuration
 
 .. code-block:: bash
 
@@ -44,7 +44,7 @@ To run the server with another configuration (``/home/user/server_config.json``)
 Client
 ------
 
-To run the client with `the default configuration <https://github.com/insight-platform/MediaGateway/tree/main/samples/client/default_config.json>`__ and to mount ``/tmp`` directory
+To run the client with `the default configuration <https://github.com/insight-platform/MediaGateway/tree/main/samples/configuration/client/default_config.json>`__ and to mount ``/tmp`` directory
 
 .. code-block:: bash
 

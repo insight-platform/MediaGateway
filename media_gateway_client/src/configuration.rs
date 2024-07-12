@@ -64,7 +64,7 @@ impl GatewayClientConfiguration {
     /// * `path` - a path to the JSON file
     ///
     /// # Examples
-    /// See [config.json](https://github.com/insight-platform/MediaGateway/blob/main/samples/client/config.json).
+    /// See [config.json](https://github.com/insight-platform/MediaGateway/blob/main/samples/configuration/client/default_config.json).
     pub fn new(path: &str) -> anyhow::Result<Self> {
         let conf = Self::with_layers(&[Layer::Json(path.into())])?;
         Ok(conf)
