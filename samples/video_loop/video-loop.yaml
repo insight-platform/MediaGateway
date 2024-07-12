@@ -1,0 +1,75 @@
+name: video-loop-example
+
+networks:
+  video-loop-network:
+
+services:
+  media-gateway-server:
+    image: ghcr.io/insight-platform/media-gateway-server:latest
+    networks:
+      video-loop-network:
+        aliases:
+          - media-gateway-server
+    ports:
+      - 8080:8080
+    volumes:
+      - /tmp/media-gateway-video-loop/socket:/tmp/socket
+      - ./server_config.json:/opt/etc/config.json
+
+  media-gateway-client:
+    image: ghcr.io/insight-platform/media-gateway-client:latest
+    networks:
+      video-loop-network:
+        aliases:
+          - media-gateway-client
+    depends_on:
+      - media-gateway-server
+    volumes:
+      - /tmp/media-gateway-video-loop/socket:/tmp/socket
+      - ./client_config.json:/opt/etc/config.json
+
+  rtsp:
+    image: ghcr.io/insight-platform/savant-adapters-deepstream:latest
+    entrypoint: python -m adapters.ds.sinks.always_on_rtsp
+    environment:
+      - ZMQ_ENDPOINT=sub+connect:ipc:///tmp/socket/server
+      - SOURCE_ID=media-gateway-video-loop
+      - STUB_FILE_LOCATION=/data/stub.jpg
+      - FRAMERATE=25/1
+      - DEV_MODE=true
+    networks:
+      video-loop-network:
+        aliases:
+          - media-gateway-client
+    ports:
+      - 888:888
+      - 554:554
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+    volumes:
+      - /tmp/media-gateway-video-loop/socket:/tmp/socket
+      - ./stub.jpeg:/data/stub.jpg
+
+  source:
+    image: ghcr.io/insight-platform/savant-adapters-gstreamer:latest
+    entrypoint: /opt/savant/adapters/gst/sources/video_loop.sh
+    networks:
+      video-loop-network:
+        aliases:
+          - source
+    depends_on:
+      - rtsp
+    environment:
+      - ZMQ_ENDPOINT=req+connect:ipc:///tmp/socket/client
+      - LOCATION=/tmp/video.mp4
+      - SOURCE_ID=media-gateway-video-loop
+      - DOWNLOAD_PATH=/tmp/download
+      - SYNC_OUTPUT=true
+    volumes:
+      - /tmp/media-gateway-video-loop/socket:/tmp/socket
+      - /tmp/media-gateway-video-loop/download:/tmp/download
+      - ./shuffle_dance.mp4:/tmp/video.mp4

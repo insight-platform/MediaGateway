@@ -1,105 +1,39 @@
 Video loop example
 ==================
 
-This example shows how to ingest video file to Media Gateway deployed on a local machine using `video loop adapter <https://docs.savant-ai.io/v0.4.0/savant_101/10_adapters.html#video-loop-source-adapter>`__.
+This example shows how to ingest `the video file <https://eu-central-1.linodeobjects.com/savant-data/demo/shuffle_dance.mp4>`__ to Media Gateway deployed on a local machine using `video loop adapter <https://docs.savant-ai.io/develop/savant_101/10_adapters.html#video-loop-source-adapter>`__ and re-stream it to `AO-RTSP <https://docs.savant-ai.io/develop/savant_101/10_adapters.html#always-on-rtsp-sink-adapter>`__ with REST API.
 
-Preparation
+Prerequisites
+-------------
+
+`Docker <https://www.docker.com/>`__ and `Docker Compose <https://docs.docker.com/compose/>`__ are installed and `NVIDIA GPU <https://docs.docker.com/config/containers/resource_constraints/#gpu>`__ is configured.
+
+Launch
+------
+
+Download :download:`example files </_download/video_loop_example.tar.gz>` and then
+
+.. code-block:: bash
+
+    mkdir video-loop-example & tar -xzf video_loop_example.tar.gz -C video-loop-example
+
+    cd video-loop-example
+
+    wget https://eu-central-1.linodeobjects.com/savant-data/demo/shuffle_dance.mp4
+
+    docker compose -f video-loop.yaml up -d
+
+Open the following URL in your browser to view the video: http://127.0.0.1:888/stream/media-gateway-video-loop/
+
+or with FFplay:
+
+.. code-block:: bash
+
+    ffplay rtsp://127.0.0.1:554/stream/media-gateway-video-loop
+
+Termination
 -----------
 
 .. code-block:: bash
 
-    mkdir -p /tmp/media-gateway-video-loop/config /tmp/media-gateway-video-loop/socket /tmp/media-gateway-video-loop/download
-
-Server
-------
-
-To run Media Gateway server
-
-.. code-block:: bash
-
-    echo '{
-      "ip": "0.0.0.0",
-      "port": 8080,
-      "out_stream": {
-        "url": "pub+bind:ipc:///tmp/socket/server",
-        "send_timeout": {
-          "secs": 1,
-          "nanos": 0
-        },
-        "send_retries": 3,
-        "receive_timeout": {
-          "secs": 1,
-          "nanos": 0
-        },
-        "receive_retries": 3,
-        "send_hwm": 1000,
-        "receive_hwm": 1000,
-        "fix_ipc_permissions": 511
-      },
-      "statistics": {
-        "timestamp_period": 1000,
-        "history_size": 1000
-      }
-    }' > /tmp/media-gateway-video-loop/config/server_config.json
-
-    docker run --rm --name media-gateway-video-loop-server \
-        -v /tmp/media-gateway-video-loop/socket:/tmp/socket \
-        -v /tmp/media-gateway-video-loop/config/server_config.json:/opt/etc/custom_config.json:ro \
-        -p 8080:8080 \
-        ghcr.io/insight-platform/media-gateway-server:latest \
-        /opt/etc/custom_config.json
-
-Client
-------
-
-To run Media Gateway client
-
-.. code-block:: bash
-
-    echo '{
-      "url": "http://localhost:8080",
-      "in_stream": {
-        "url": "rep+bind:ipc:///tmp/socket/client",
-        "receive_timeout": {
-          "secs": 10,
-          "nanos": 0
-        },
-        "receive_hwm": 1000,
-        "topic_prefix_spec": {
-          "none": null
-        },
-        "source_cache_size": 1000,
-        "inflight_ops": 100
-      },
-      "statistics": {
-        "timestamp_period": 1000,
-        "history_size": 1000
-      }
-    }
-    ' > /tmp/media-gateway-video-loop/config/client_config.json
-
-    docker run --rm --name media-gateway-video-loop-client \
-        --network host \
-        -v /tmp/media-gateway-video-loop/socket:/tmp/socket \
-        -v /tmp/media-gateway-video-loop/config/client_config.json:/opt/etc/custom_config.json:ro \
-        ghcr.io/insight-platform/media-gateway-client:latest \
-        /opt/etc/custom_config.json
-
-Video loop
-----------
-
-To run video loop adapter with the video file ``video.mp4``
-
-.. code-block:: bash
-
-    docker run --rm -it --name media-gateway-video-loop-source \
-        --entrypoint /opt/savant/adapters/gst/sources/video_loop.sh \
-        -e SYNC_OUTPUT=True \
-        -e ZMQ_ENDPOINT=req+connect:ipc:///tmp/socket/client \
-        -e SOURCE_ID=media-gateway-video-loop \
-        -e LOCATION=/tmp/video.mp4 \
-        -e DOWNLOAD_PATH=/tmp/download \
-        -v video.mp4:/tmp/video.mp4:ro \
-        -v /tmp/media-gateway-video-loop/socket:/tmp/socket \
-        -v /tmp/media-gateway-video-loop/download:/tmp/download \
-        ghcr.io/insight-platform/savant-adapters-gstreamer:latest
+    docker compose -f video-loop.yaml down
