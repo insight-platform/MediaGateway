@@ -1,12 +1,155 @@
 TLS
 ===
 
-This section describes how to generate self-signed certificates and CLRs using `OpenSSL <https://www.openssl.org/>`_. Provided instructions specifies the minimum required information only. For production usage see OpenSSL documentation.
+Media Gateway TLS features:
+
+* HTTPS
+* client certificate authentication
+
+TLS features are implemented using `OpenSSL <https://www.openssl.org/>`__.
+
+HTTPS
+-----
+
+Media Gateway supports both self-signed and signed by CA server certificates. Certificates should be in PEM format. To enable HTTPS in Media Gateway update both server and client configuration.
+
+The protocol in ``url`` field in the client configuration must be updated to ``https``.
+
+* a self-signed server certificate
+
+``server.crt`` is a file with the server certificate in PEM format.
+
+``server.key`` is a file with the server key in PEM format.
+
+.. code-block:: json
+    :caption: server
+
+    "ssl": {
+        "server": {
+            "certificate": "server.crt",
+            "certificate_key": "server.key"
+        }
+    }
+
+.. code-block:: json
+    :caption: client
+
+    "ssl": {
+        "server": {
+            "certificate": "server.crt"
+        }
+    }
+
+* a signed by a private CA server certificate
+
+``server.crt`` is a file with the server certificate in PEM format.
+
+``server.key`` is a file with the server key in PEM format.
+
+``ca.crt`` is a file with the CA certificate in PEM format.
+
+.. code-block:: json
+    :caption: server
+
+    "ssl": {
+        "server": {
+            "certificate": "server.crt",
+            "certificate_key": "server.key"
+        }
+    }
+
+.. code-block:: json
+    :caption: client
+
+    "ssl": {
+        "server": {
+            "certificate": "ca.crt"
+        }
+    }
+
+* a signed by a public CA server certificate
+
+``server.crt`` is a file with a sequence of certificates, the first being the leaf certificate, and the remainder forming the chain of certificates up to and including the trusted root certificate.
+
+``server.key`` is a file with the server key in PEM format.
+
+.. code-block:: json
+    :caption: server
+
+    "ssl": {
+        "server": {
+            "certificate": "server.crt",
+            "certificate_key": "server.key"
+        }
+    }
+
+Client certificate authentication
+---------------------------------
+
+Client certificate authentication is an optional feature in Media Gateway. Only signed by CA client certificates can be used. Certificates should be in PEM format.
+
+The server uses a store with trusted X509 certificates to verify peer certificates. The store automatically (without a server restart) loads certificates and CRLs from the specified directory. Certificates and CRLs should be added to the directory in accordance with `X509_LOOKUP_hash_dir method <https://www.openssl.org/docs/man1.1.1/man3/X509_LOOKUP_hash_dir.html>`__ requirements. For each certificate at least one CRL must be in the directory. CRL might be without revoked certificates. A new CRL must be loaded when the previous CRL is expired.
+
+``ca.crt`` is a file with the CA certificate in PEM format.
+
+``ca.crl`` is a file with CRL in PEM format.
+
+``/opt/etc/store`` is a directory with CA certificates and CRLs.
+
+To add a new certificate and corresponding CRL
+
+.. code-block:: bash
+
+    CA_HASH=$(openssl x509 -in ca.crt -subject_hash -noout)
+
+    cp ca.crt "/opt/etc/store/$CA_HASH.0"
+
+    CRL_HASH=$(openssl crl -in ca.crl -hash -noout)
+
+    cp ca.crl "/opt/etc/store/$CRL_HASH.r0"
+
+To enable client certificate authentication in Media Gateway update both server and client configuration.
+
+``/opt/etc/store`` is a directory with CA certificates and CRLs.
+
+``client.crt`` is a file with a client certificate in PEM format.
+
+``client.key`` is a file with a PEM encoded PKCS #8 formatted client key.
+
+.. code-block:: json
+    :caption: server
+
+    "ssl": {
+        "server": {
+            // see HTTPS section
+        },
+        "client": {
+            "certificate_directory": "/opt/etc/store"
+        }
+    }
+
+.. code-block:: json
+    :caption: client
+
+    "ssl": {
+        "server": {
+            // see HTTPS section
+        },
+        "client": {
+            "certificate": "client.crt",
+            "certificate_key": "client.key"
+        }
+    }
+
+Certificate generation with a private CA
+----------------------------------------
+
+This section describes how to generate certificates and CLRs signed by a private CA using `OpenSSL <https://www.openssl.org/>`_. Provided instructions specifies the minimum required information only. For production usage see OpenSSL documentation.
 
 CA
---
+^^
 
-To generate a CA certificate with 365 days to certify with a simple subject name
+To set up a private CA and generate a certificate
 
 .. code-block:: bash
 
@@ -47,7 +190,7 @@ To generate a CA certificate with 365 days to certify with a simple subject name
     cert_opt        = ca_default
 
     default_days     = 365
-    default_crl_days = 30
+    default_crl_hours = 1
     default_md       = default
     preserve         = no
     policy           = policy_any
@@ -111,14 +254,14 @@ To generate a CA certificate with 365 days to certify with a simple subject name
 
     openssl req -new -x509 -days 365  -config ca.conf -key ca.key -out ca.crt -subj "/CN=ca.example.com"
 
-Certificate key file: ca.key
+``ca.crt`` is a file with CA certificate in PEM format.
 
-Certificate file: ca.crt
+``ca.key`` is a file with CA key in PEM format.
 
 Server
-------
+^^^^^^
 
-To generate a server certificate signed by CA with a simple subject name and IP (both ``127.0.0.1`` and ``192.168.0.100``) subject alternative name
+To generate a server certificate signed by the CA with a simple subject name and IP (both ``127.0.0.1`` and ``192.168.0.100``) subject alternative name
 
 .. code-block:: bash
 
@@ -150,14 +293,14 @@ To generate a server certificate signed by CA with a simple subject name and DNS
     extendedKeyUsage=serverAuth
     subjectAltName=DNS:server.example.com')
 
-Certificate key file: certs/server.key
+``certs/server.crt`` is a file with a server certificate in PEM format.
 
-Certificate file: certs/server.crt
+``certs/server.key`` is a file with a server key in PEM format.
 
 Client
 ------
 
-To generate a client certificate signed by CA with a simple subject name
+To generate a client certificate signed by the CA with a simple subject name
 
 .. code-block:: bash
 
@@ -172,14 +315,14 @@ To generate a client certificate signed by CA with a simple subject name
     extendedKeyUsage=clientAuth
     authorityKeyIdentifier=keyid,issuer')
 
-Certificate key file: certs/client.key
+``certs/client.crt`` is a file with a client certificate in PEM format.
 
-Certificate file: certs/client.crt
+``certs/client.key`` is a file with a client key in PEM format.
 
 X509 lookup hash dir
 --------------------
 
-To prepare certificates signed by CA for `X509_LOOKUP_hash_dir method <https://www.openssl.org/docs/man1.1.1/man3/X509_LOOKUP_hash_dir.html>`__ in ``certs/client`` directory
+To prepare certificates signed by the CA for `X509_LOOKUP_hash_dir method <https://www.openssl.org/docs/man1.1.1/man3/X509_LOOKUP_hash_dir.html>`__ in ``certs/client`` directory
 
 .. code-block:: bash
 
@@ -200,7 +343,7 @@ A filename has the form ``hash.N`` for a certificate and the form ``hash.rN`` fo
 CRL
 ---
 
-To revoke a client certificate signed by CA
+To revoke a client certificate signed by the CA
 
 .. code-block:: bash
 
