@@ -15,7 +15,7 @@ Download :download:`example files </_download/e2e_usage_video_loop_ao_rtsp.tar.g
 
 .. code-block:: bash
 
-    mkdir e2e_usage_video_loop_ao_rtsp & tar -xzf video_loop_example.tar.gz -C e2e_usage_video_loop_ao_rtsp
+    mkdir e2e_usage_video_loop_ao_rtsp & tar -xzf e2e_usage_video_loop_ao_rtsp.tar.gz -C e2e_usage_video_loop_ao_rtsp
 
     cd e2e_usage_video_loop_ao_rtsp
 
