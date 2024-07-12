@@ -43,8 +43,8 @@ Both server and client can be run as Docker containers.
 
 ### Server
 
-To run the server with [the default configuration](samples/server/default_config.json) and to mount `/tmp` directory and
-publish the port from the default configuration
+To run the server with [the default configuration](samples/configuration/server/default_config.json) and to mount `/tmp`
+directory and publish the port from the default configuration
 
 ```bash
 docker run \
@@ -65,7 +65,8 @@ docker run \
 
 ### Client
 
-To run the client with [the default configuration](samples/client/default_config.json) and to mount `/tmp` directory
+To run the client with [the default configuration](samples/configuration/client/default_config.json) and to mount `/tmp`
+directory
 
 ```bash
 docker run \

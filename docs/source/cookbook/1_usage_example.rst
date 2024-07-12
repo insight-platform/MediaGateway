@@ -1,0 +1,39 @@
+Usage example
+=============
+
+This example shows how to ingest `the video file <https://eu-central-1.linodeobjects.com/savant-data/demo/shuffle_dance.mp4>`__ to Media Gateway deployed on a local machine using `video loop adapter <https://docs.savant-ai.io/develop/savant_101/10_adapters.html#video-loop-source-adapter>`__ and re-stream it to `AO-RTSP <https://docs.savant-ai.io/develop/savant_101/10_adapters.html#always-on-rtsp-sink-adapter>`__ with REST API.
+
+Prerequisites
+-------------
+
+`Docker <https://www.docker.com/>`__ and `Docker Compose <https://docs.docker.com/compose/>`__ are installed and `NVIDIA GPU <https://docs.docker.com/config/containers/resource_constraints/#gpu>`__ is configured.
+
+Launch
+------
+
+Download :download:`example files </_download/e2e_usage_video_loop_ao_rtsp.tar.gz>` and then
+
+.. code-block:: bash
+
+    mkdir e2e_usage_video_loop_ao_rtsp & tar -xzf video_loop_example.tar.gz -C e2e_usage_video_loop_ao_rtsp
+
+    cd e2e_usage_video_loop_ao_rtsp
+
+    wget https://eu-central-1.linodeobjects.com/savant-data/demo/shuffle_dance.mp4
+
+    docker compose -f docker-compose.yaml up -d
+
+Open the following URL in your browser to view the video: http://127.0.0.1:888/stream/media-gateway-video-loop/
+
+or with FFplay:
+
+.. code-block:: bash
+
+    ffplay rtsp://127.0.0.1:554/stream/media-gateway-video-loop
+
+Termination
+-----------
+
+.. code-block:: bash
+
+    docker compose -f video-loop.yaml down

@@ -262,5 +262,5 @@ You can use environment variables in the configuration file. The syntax is ``${V
 
 Examples
 --------
-Examples of configuration files can be found `here <https://github.com/insight-platform/MediaGateway/tree/main/samples>`_.
+Examples of configuration files can be found `here <https://github.com/insight-platform/MediaGateway/tree/main/samples/configuration>`_.
 

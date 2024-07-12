@@ -3,7 +3,7 @@ ARG TYPE
 
 WORKDIR /usr/src/media-gateway
 COPY . .
-COPY "samples/${TYPE}/default_config.json" /opt/etc/config.json
+COPY "samples/configuration/${TYPE}/default_config.json" /opt/etc/config.json
 
 RUN build/install-deps.sh
 RUN cargo build --release

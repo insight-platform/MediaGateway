@@ -16,7 +16,7 @@
 //! * basic authentication
 //!
 //! # Examples
-//! See [configuration files](https://github.com/insight-platform/MediaGateway/blob/main/samples/client).
+//! See [configuration files](https://github.com/insight-platform/MediaGateway/blob/main/samples/configuration/client).
 //! `in_stream` fields represents configuration for
 //! [`ReaderConfigBuilder`](savant_core::transport::zeromq::ReaderConfigBuilder).
 use std::env::args;
