@@ -23,17 +23,17 @@ Download :download:`example files </_download/e2e_usage_video_loop_ao_rtsp.tar.g
 
     docker compose -f docker-compose.yaml up -d
 
-Open the following URL in your browser to view the video: http://127.0.0.1:888/stream/media-gateway-video-loop/
+Open the following URL in your browser to view the video: http://127.0.0.1:888/stream/e2e_usage_video_loop_ao_rtsp/
 
 or with FFplay:
 
 .. code-block:: bash
 
-    ffplay rtsp://127.0.0.1:554/stream/media-gateway-video-loop
+    ffplay rtsp://127.0.0.1:554/stream/e2e_usage_video_loop_ao_rtsp
 
 Termination
 -----------
 
 .. code-block:: bash
 
-    docker compose -f video-loop.yaml down
+    docker compose -f docker-compose.yaml down
