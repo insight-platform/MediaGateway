@@ -5,7 +5,7 @@ networks:
 
 services:
   media-gateway-server:
-    image: ghcr.io/insight-platform/media-gateway-server:latest
+    image: ghcr.io/insight-platform/media-gateway-server-arm64:latest
     networks:
       network:
         aliases:
@@ -17,7 +17,7 @@ services:
       - ./server_config.json:/opt/etc/config.json
 
   media-gateway-client:
-    image: ghcr.io/insight-platform/media-gateway-client:latest
+    image: ghcr.io/insight-platform/media-gateway-client-arm64:latest
     networks:
       network:
         aliases:

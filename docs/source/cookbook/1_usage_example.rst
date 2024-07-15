@@ -21,7 +21,15 @@ Download :download:`example files </_download/e2e_usage_video_loop_ao_rtsp.tar.g
 
     wget https://eu-central-1.linodeobjects.com/savant-data/demo/shuffle_dance.mp4
 
-    docker compose -f docker-compose.yaml up -d
+.. code-block:: bash
+    :caption: x86_64
+
+    docker compose -f docker-compose-x86.yaml up -d
+
+.. code-block:: bash
+    :caption: ARM64
+
+    docker compose -f docker-compose-arm64.yaml up -d
 
 Open the following URL in your browser to view the video: http://127.0.0.1:888/stream/e2e_usage_video_loop_ao_rtsp/
 
@@ -35,5 +43,11 @@ Termination
 -----------
 
 .. code-block:: bash
+    :caption: x86_64
 
-    docker compose -f docker-compose.yaml down
+    docker compose -f docker-compose-x86.yaml down
+
+.. code-block:: bash
+    :caption: ARM64
+
+    docker compose -f docker-compose-arm64.yaml down
