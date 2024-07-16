@@ -2,12 +2,48 @@
   "ip": "0.0.0.0",
   "port": 8080,
   "auth": {
-    "basic": [
-      {
-        "id": "user",
-        "password": "password"
+    "basic": {
+      "etcd": {
+        "urls": "http://localhost:2379",
+        "tls": {
+          "server_certificate": "etcd-ca.pem",
+          "identity": {
+            "certificate": "etcd-client-cert.pem",
+            "certificate_key": "etcd-client-key.pem"
+          }
+        },
+        "path": "/users",
+        "data_format": "json",
+        "lease_timeout": {
+          "secs": 60,
+          "nanos": 0
+        },
+        "connect_timeout": {
+          "secs": 30,
+          "nanos": 0
+        },
+        "cache": {
+          "size": 10,
+          "usage": {
+            "period": {
+              "secs": 60,
+              "nanos": 0
+            },
+            "evicted_threshold": 10
+          }
+        }
+      },
+      "cache": {
+        "size": 10,
+        "usage": {
+          "period": {
+            "secs": 60,
+            "nanos": 0
+          },
+          "evicted_threshold": 10
+        }
       }
-    ]
+    }
   },
   "out_stream": {
     "url": "pub+bind:ipc:///tmp/server",

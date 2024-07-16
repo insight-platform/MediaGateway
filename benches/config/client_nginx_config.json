@@ -3,10 +3,8 @@
   "port": 8081,
   "url": "https://nginx:443",
   "ssl": {
-    "server": {
-      "certificate": "/etc/certs/ca.crt"
-    },
-    "client": {
+    "server_certificate": "/etc/certs/ca.crt",
+    "identity": {
       "certificate": "/etc/certs/client.crt",
       "certificate_key": "/etc/certs/client.key"
     }

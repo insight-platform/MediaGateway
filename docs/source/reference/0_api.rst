@@ -1,6 +1,8 @@
 RESTful API
 ===========
 
+.. _health endpoint:
+
 Health
 ------
 

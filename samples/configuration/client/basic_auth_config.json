@@ -4,7 +4,7 @@
   "url": "http://localhost:8080",
   "auth": {
     "basic": {
-      "id": "user",
+      "username": "user",
       "password": "password"
     }
   },

@@ -7,41 +7,18 @@ use savant_core::transport::zeromq::{NonBlockingReader, ReaderConfigBuilder};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
 
-use media_gateway_common::configuration::{BasicUser, StatisticsConfiguration};
+use media_gateway_common::configuration::{
+    ClientTlsConfiguration, Credentials, StatisticsConfiguration,
+};
 
 use crate::retry::RetryStrategy;
 use crate::wait::WaitStrategy;
-
-/// SSL settings to connect to the media gateway server.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SslConfiguration {
-    /// Server settings
-    pub server: Option<ServerSslConfiguration>,
-    /// Client settings
-    pub client: Option<ClientSslConfiguration>,
-}
-
-/// Server SSL settings.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ServerSslConfiguration {
-    /// A path to a self-signed PEM encoded server certificate or PEM encoded CA certificate
-    pub certificate: String,
-}
-
-/// Client SSL settings. See [`Identity::from_pkcs8_pem`](reqwest::Identity::from_pkcs8_pem).
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ClientSslConfiguration {
-    /// A path to a chain of PEM encoded X509 certificates, with the leaf certificate first
-    pub certificate: String,
-    /// A path to a PEM encoded PKCS #8 formatted private key
-    pub certificate_key: String,
-}
 
 /// Authentication settings to connect to the media gateway server.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthConfiguration {
     /// Credentials for basic authentication.
-    pub basic: BasicUser,
+    pub basic: Credentials,
 }
 
 /// A configuration for [`GatewayClient`](crate::client::GatewayClient).
@@ -61,7 +38,7 @@ pub struct GatewayClientConfiguration {
     /// A strategy how to wait for data while reading
     pub wait_strategy: Option<WaitStrategy>,
     /// SSL settings
-    pub ssl: Option<SslConfiguration>,
+    pub ssl: Option<ClientTlsConfiguration>,
     /// Authentication settings
     pub auth: Option<AuthConfiguration>,
     /// Statistics settings

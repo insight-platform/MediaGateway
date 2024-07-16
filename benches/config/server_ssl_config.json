@@ -2,7 +2,7 @@
   "ip": "0.0.0.0",
   "port": 8080,
   "ssl": {
-    "server": {
+    "identity": {
       "certificate": "/etc/certs/server.crt",
       "certificate_key": "/etc/certs/server.key"
     },

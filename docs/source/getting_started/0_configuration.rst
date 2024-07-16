@@ -79,18 +79,160 @@ out_stream
 auth
 ^^^^
 
-The only supported authentication type is ``basic``. Provided user names and passwords are loaded to the memory.
+The only supported authentication type is ``basic``. Provided user names and passwords are loaded from `etcd <https://etcd.io/>`__. The key in `etcd` is a user name. The value in `etcd` is an object in JSON/YAML format with the following schema
 
 .. code-block:: json
 
-    "auth": {
-        "basic": [
-            {
-                "id": "user",
-                "password": "password"
-            }
-        ]
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "Media Gateway user data schema",
+      "type": "object",
+      "properties": {
+        "password_hash": {
+          "description": "Argon2 password hash in PHC string format.",
+          "type": "string"
+        },
+        "allowed_routing_labels": {
+          "type": "object",
+          "anyOf": [
+            {"$ref": "#/$defs/set"},
+            {"$ref": "#/$defs/unset"},
+            {"$ref": "#/$defs/and"},
+            {"$ref": "#/$defs/or"},
+            {"$ref": "#/$defs/not"}
+          ]
+        }
+      },
+      "required": [ "password_hash" ],
+      "$defs": {
+        "set": {
+          "description": "Set label rule: routing labels must contain a specified label.",
+          "type": "string"
+        },
+        "unset": {
+          "description": "Unset label rule: routing labels must not contain a specified label.",
+          "type": "string"
+        },
+        "and" : {
+          "description": "And label rule: labels rules combined with and logic.",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {"$ref": "#/$defs/set"},
+              {"$ref": "#/$defs/unset"},
+              {"$ref": "#/$defs/and"},
+              {"$ref": "#/$defs/or"},
+              {"$ref": "#/$defs/not"}
+            ]
+          }
+        },
+        "or" : {
+          "description": "Or label rule: labels rules combined with or logic.",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {"$ref": "#/$defs/set"},
+              {"$ref": "#/$defs/unset"},
+              {"$ref": "#/$defs/and"},
+              {"$ref": "#/$defs/or"},
+              {"$ref": "#/$defs/not"}
+            ]
+          }
+        },
+        "not" : {
+          "description": "Not label rule: a negation of the specified label rule.",
+          "type": "object",
+          "items": {
+            "anyOf": [
+              {"$ref": "#/$defs/set"},
+              {"$ref": "#/$defs/unset"},
+              {"$ref": "#/$defs/and"},
+              {"$ref": "#/$defs/or"},
+              {"$ref": "#/$defs/not"}
+            ]
+          }
+        }
+      }
     }
+
+.. list-table::
+    :header-rows: 1
+
+    * - Field
+      - Description
+      - Mandatory
+    * - etcd
+      - etcd configuration.
+      - true
+    * - etcd.urls
+      - A list of etcd server endpoints to connect to.
+      - true
+    * - etcd.tls
+      - TLS options to use while connecting to etcd servers.
+      - false
+    * - etcd.tls.server_certificate
+      - CA certificate against which to verify the etcd server's TLS certificate.
+      - false
+    * - etcd.tls.identity
+      - The client identity to present to the etcd server.
+      - false
+    * - etcd.tls.identity.certificate
+      - A path to a chain of PEM encoded certificates, with the leaf certificate first.
+      - true
+    * - etcd.tls.identity.certificate_key
+      - A path to a PEM encoded private key
+      - true
+    * - etcd.credentials
+      - Credentials for basic authentication in etcd.
+      - false
+    * - etcd.credentials.username
+      - A user name for basic authentication in etcd.
+      - true
+    * - etcd.credentials.password
+      - A password for basic authentication in etcd.
+      - true
+    * - etcd.path
+      - The path of the hierarchically organized directories (as in a standard filesystem) for the stored key/value(-s).
+      - true
+    * - etcd.data_format
+      - The format of the data stored in etcd. Possible values are `json`, `yaml`.
+      - true
+    * - etcd.connect_timeout
+      - A timeout for each request to etcd in the duration format, e.g. ``{"secs": 1, "nanos": 0}``.
+      - true
+    * - etcd.lease_timeout
+      - A timeout to hold keys if the etcd server does not receive a keepAlive, in the duration format, e.g. ``{"secs": 60, "nanos": 0}``
+      - true
+    * - etcd.cache
+      - Settings for user data cache. See :ref:`cache configuration section <cache configuration>`.
+      - true
+    * - cache
+      - Settings for authentication cache. See :ref:`cache configuration section <cache configuration>`.
+      - true
+
+.. _cache configuration:
+
+cache
+^^^^^
+
+.. list-table::
+    :header-rows: 1
+
+    * - Field
+      - Description
+      - Mandatory
+    * - size
+      - A size of LRU cache for credentials to exclude running encryption functions when the same credentials are passed.
+      - true
+    * - usage
+      - Settings to monitor LRU cache usage and to produce a warning when more than X keys per a period are evicted.
+      - false
+    * - usage.period
+      - A period to track evicted keys in the duration format, e.g. ``{"secs": 1, "nanos": 0}``.
+      - true
+    * - usage.evicted_threshold
+      - The positive integer number of keys allowed for eviction for the period.
+      - true
 
 ssl
 ^^^
@@ -100,13 +242,13 @@ ssl
     * - Field
       - Description
       - Mandatory
-    * - server
+    * - identity
       - HTTPS settings.
       - yes
-    * - server.certificate
+    * - identity.certificate
       - A path to a PEM encoded certificate (can be a self-signed certificate).
       - yes
-    * - server.certificate_key
+    * - identity.certificate_key
       - A path to a private key for the certificate.
       - yes
     * - client
@@ -337,7 +479,7 @@ The only supported authentication type is ``basic``.
 
     "auth": {
         "basic": {
-            "id": "user",
+            "username": "user",
             "password": "password"
         }
     }
@@ -350,19 +492,16 @@ ssl
     * - Field
       - Description
       - Mandatory
-    * - server
-      - HTTPS settings.
-      - yes
-    * - server.certificate
+    * - server_certificate
       - A path to a self-signed PEM encoded server certificate or PEM encoded CA certificate
       - yes
-    * - client
+    * - identity
       - Client certificate authentication settings.
       - no
-    * - client.certificate
+    * - identity.certificate
       - A path to a chain of PEM encoded X509 certificates, with the leaf certificate first.
       - yes
-    * - client.certificate_key
+    * - identity.certificate_key
       - A path to a PEM encoded PKCS #8 formatted private key
       - yes
 
