@@ -12,11 +12,32 @@ env:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      matrix:
+        include:
+          - arch: linux/arm64
+            arch-tag: arm64
+            runner: ARM64
+          - arch: linux/amd64
+            arch-tag: x86
+            runner: X64
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Inject slug/short variables
+        uses: rlespinasse/github-slug-action@v4.4.1
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.5.0
+        with:
+          cosign-release: 'v2.2.4'
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -38,16 +59,18 @@ jobs:
       - name: Build and push Docker server image
         uses: docker/build-push-action@v6
         with:
+          platforms: ${{ matrix.arch }}
           context: .
           push: true
-          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/media-gateway-server:${{ steps.meta.outputs.tag}}
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/media-gateway-server-${{ matrix.arch-tag }}:${{ steps.meta.outputs.tag}}
           build-args: |
             TYPE=server
       - name: Build and push Docker client image
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
+          platforms: ${{ matrix.arch }}
           context: .
           push: true
-          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/media-gateway-client:${{ steps.meta.outputs.tag}}
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/media-gateway-client-${{ matrix.arch-tag }}:${{ steps.meta.outputs.tag}}
           build-args: |
             TYPE=client

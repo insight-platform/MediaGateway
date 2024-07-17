@@ -1,0 +1,75 @@
+name: e2e_usage_video_loop_ao_rtsp
+
+networks:
+  network:
+
+services:
+  media-gateway-server:
+    image: ghcr.io/insight-platform/media-gateway-server-x86:latest
+    networks:
+      network:
+        aliases:
+          - media-gateway-server
+    ports:
+      - 8080:8080
+    volumes:
+      - /tmp/e2e_usage_video_loop_ao_rtsp/socket:/tmp/socket
+      - ./server_config.json:/opt/etc/config.json
+
+  media-gateway-client:
+    image: ghcr.io/insight-platform/media-gateway-client-x86:latest
+    networks:
+      network:
+        aliases:
+          - media-gateway-client
+    depends_on:
+      - media-gateway-server
+    volumes:
+      - /tmp/e2e_usage_video_loop_ao_rtsp/socket:/tmp/socket
+      - ./client_config.json:/opt/etc/config.json
+
+  rtsp:
+    image: ghcr.io/insight-platform/savant-adapters-deepstream:latest
+    entrypoint: python -m adapters.ds.sinks.always_on_rtsp
+    environment:
+      - ZMQ_ENDPOINT=sub+connect:ipc:///tmp/socket/server
+      - SOURCE_ID=e2e_usage_video_loop_ao_rtsp
+      - STUB_FILE_LOCATION=/data/stub.jpg
+      - FRAMERATE=25/1
+      - DEV_MODE=true
+    networks:
+      network:
+        aliases:
+          - media-gateway-client
+    ports:
+      - 888:888
+      - 554:554
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [ gpu ]
+    volumes:
+      - /tmp/e2e_usage_video_loop_ao_rtsp/socket:/tmp/socket
+      - ./stub.jpeg:/data/stub.jpg
+
+  source:
+    image: ghcr.io/insight-platform/savant-adapters-gstreamer:latest
+    entrypoint: /opt/savant/adapters/gst/sources/video_loop.sh
+    networks:
+      network:
+        aliases:
+          - source
+    depends_on:
+      - rtsp
+    environment:
+      - ZMQ_ENDPOINT=req+connect:ipc:///tmp/socket/client
+      - LOCATION=/tmp/video.mp4
+      - SOURCE_ID=e2e_usage_video_loop_ao_rtsp
+      - DOWNLOAD_PATH=/tmp/download
+      - SYNC_OUTPUT=true
+    volumes:
+      - /tmp/e2e_usage_video_loop_ao_rtsp/socket:/tmp/socket
+      - /tmp/e2e_usage_video_loop_ao_rtsp/download:/tmp/download
+      - ./shuffle_dance.mp4:/tmp/video.mp4
