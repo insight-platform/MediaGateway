@@ -32,5 +32,6 @@ Features
    :maxdepth: 1
    :caption: Cookbook
 
-   cookbook/0_tls
+   cookbook/0_secure_communication
+   cookbook/0_client_certificate_authentication
    cookbook/1_usage_example
