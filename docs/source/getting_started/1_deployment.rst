@@ -24,7 +24,7 @@ Server
 To run the server with `the default configuration <https://github.com/insight-platform/MediaGateway/tree/main/samples/configuration/server/default_config.json>`__ and to mount ``/tmp`` directory and publish the port from the default configuration
 
 .. code-block:: bash
-    :caption: x86_64
+    :caption: X86_64
 
     docker run \
         -v /tmp:/tmp \
@@ -39,10 +39,10 @@ To run the server with `the default configuration <https://github.com/insight-pl
         -p 8080:8080 \
         ghcr.io/insight-platform/media-gateway-server-arm64:latest
 
-To run the server with another configuration (``/home/user/server_config.json``)
+To run the server with custom configuration (``/home/user/server_config.json``)
 
 .. code-block:: bash
-    :caption: x86_64
+    :caption: X86_64
 
     docker run \
         -v /home/user/server_config.json:/opt/etc/custom_config.json \
@@ -65,7 +65,7 @@ Client
 To run the client with `the default configuration <https://github.com/insight-platform/MediaGateway/tree/main/samples/configuration/client/default_config.json>`__ and to mount ``/tmp`` directory
 
 .. code-block:: bash
-    :caption: x86_64
+    :caption: X86_64
 
     docker run \
         -v /tmp:/tmp \
@@ -82,7 +82,7 @@ To run the client with `the default configuration <https://github.com/insight-pl
 
 where ``<GATEWAY_URL>`` is the server URL, e.g. ``http://192.168.0.100:8080``
 
-To run the server with another configuration (``/home/user/client_config.json``)
+To run the server with custom configuration (``/home/user/client_config.json``)
 
 .. code-block:: bash
     :caption: x86_64
@@ -93,7 +93,7 @@ To run the server with another configuration (``/home/user/client_config.json``)
         /opt/etc/custom_config.json
 
 .. code-block:: bash
-    :caption: arm64
+    :caption: ARM64
 
     docker run \
         -v /home/user/client_config.json:/opt/etc/custom_config.json \

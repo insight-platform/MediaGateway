@@ -3,10 +3,10 @@ Configuration
 
 Both server and client applications are configured via JSON files.
 
-Server
-------
+Server configuration
+--------------------
 
-The server configuration consists of following fields:
+The server configuration is managed with the following configuration attributes:
 
 .. list-table::
     :header-rows: 1
@@ -33,8 +33,10 @@ The server configuration consists of following fields:
       - Statistics settings.
       - no
 
-out_stream
-^^^^^^^^^^
+The "out_stream" section configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The section defines how to write to the target ZeroMQ socket.
 
 .. list-table::
     :header-rows: 1
@@ -76,10 +78,16 @@ out_stream
       - no
       -
 
-auth
-^^^^
+The "auth" section configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The only supported authentication type is ``basic``. Provided user names and passwords are loaded to the memory.
+.. note::
+
+    Media Gateway supports two authentication mechanisms: the first is based on X509 client certificates, and the second is based on basic authentication. The "auth" section is used to configure the basic authentication. With the basic authentication, the server will use the Etcd service to authenticate the client and authorize the access based message routing labels.
+
+In this section you can find how to configure the basic authentication against the Etcd service.
+
+TODO
 
 .. code-block:: json
 
@@ -92,8 +100,11 @@ The only supported authentication type is ``basic``. Provided user names and pas
         ]
     }
 
-ssl
-^^^
+The "ssl" section configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The "ssl" section is used to configure HTTPS and client certificate authentication settings.
+
 .. list-table::
     :header-rows: 1
 
@@ -116,8 +127,8 @@ ssl
       - A directory with certificates and CRLs to verify client certificates. See `X509_LOOKUP_hash_dir method <https://www.openssl.org/docs/man1.1.1/man3/X509_LOOKUP_hash_dir.html>`_ for more details.
       - yes
 
-statistics
-^^^^^^^^^^
+The "statistics" section configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 At least one of ``frame_period`` and ``timestamp_period`` should be specified.
 
@@ -137,10 +148,10 @@ At least one of ``frame_period`` and ``timestamp_period`` should be specified.
       - A size of a history to be stored
       - yes
 
-Client
-------
+Client configuration
+--------------------
 
-The client configuration consist of following fields:
+The client configuration is managed with the following configuration attributes:
 
 .. list-table::
     :header-rows: 1
@@ -164,8 +175,10 @@ The client configuration consist of following fields:
       - Statistics settings.
       - no
 
-in_stream
-^^^^^^^^^
+The "in_stream" section configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The section defines how to read messages from the source ZeroMQ socket. Those messages will be sent to the media gateway service.
 
 .. list-table::
     :header-rows: 1
@@ -195,10 +208,15 @@ in_stream
       - The maximum number of read messages for non-blocking mode.
       - yes
 
-auth
-^^^^
+The "auth" section configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The only supported authentication type is ``basic``.
+.. note::
+
+    Media Gateway supports two authentication mechanisms: the first is based on X509 client certificates, and the second is based on basic authentication. The "auth" section is used to configure the basic authentication. With the basic authentication, the server will use the Etcd service to authenticate the client and authorize the access based message routing labels.
+
+
+In this section you can find how to configure the basic authentication.
 
 .. code-block:: json
 
@@ -209,8 +227,11 @@ The only supported authentication type is ``basic``.
         }
     }
 
-ssl
-^^^
+The "ssl" section configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The "ssl" section is used to configure HTTPS and client certificate authentication settings.
+
 .. list-table::
     :header-rows: 1
 
@@ -233,8 +254,8 @@ ssl
       - A path to a PEM encoded PKCS #8 formatted private key
       - yes
 
-statistics
-^^^^^^^^^^
+The "statistics" section configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 At least one of ``frame_period`` and ``timestamp_period`` should be specified.
 
