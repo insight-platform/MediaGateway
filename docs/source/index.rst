@@ -3,17 +3,17 @@
 Media Gateway's documentation
 =============================
 
-`Media Gateway <https://github.com/insight-platform/MediaGateway>`_ is an application that provides a functionality to forward `Savant <https://docs.savant-ai.io/>`_ messages from one `ZeroMQ <https://zeromq.org/>`_ instance to another. The media gateway consists of two parts - a server and client. The client reads messages from the source ZeroMQ instance and sends them to the server via HTTP/HTTPS. The server writes received messages to the target ZeroMQ instance.
+`Media Gateway <https://github.com/insight-platform/MediaGateway>`_ is a service providing a secure bridge (with encryption and authentication) between `Savant <https://docs.savant-ai.io/>`_ edge and cloud components. Media Gateway consists of two elements: a server and client. The client reads messages from the source ZeroMQ socket and sends them to the server via HTTP/HTTPS. The server writes received messages to the target ZeroMQ instance.
 
 * **Repository**: https://github.com/insight-platform/MediaGateway
 * **License**: Business Source License 1.1
 
 Features
 --------
-* HTTPS
-* basic authentication
-* client certificate authentication
-* FPS statistics logging (by frame or timestamp period)
+* HTTPS;
+* Etcd-based basic authentication;
+* X509 client-certificate authentication.
+
 
 .. toctree::
    :maxdepth: 1
