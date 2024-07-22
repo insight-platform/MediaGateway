@@ -1,29 +1,30 @@
-TLS
-===
+TLS configuration
+=================
 
-Media Gateway TLS features:
+Media Gateway supports TLS for secure communication between the server and the client. The following TLS features are available:
 
-* HTTPS
-* client certificate authentication
+* HTTPS encryption with self-signed and signed by CA server certificates;
+* client certificate authentication.
 
 TLS features are implemented using `OpenSSL <https://www.openssl.org/>`__.
 
-HTTPS
------
+HTTPS configuration
+--------------------
 
-Media Gateway supports both self-signed and signed by CA server certificates. Certificates should be in PEM format. To enable HTTPS in Media Gateway update both server and client configuration.
+Media Gateway supports both self-signed and CA-signed server certificates. Certificates must be provided in PEM format. To enable HTTPS in Media Gateway update both server and client configuration.
 
 The protocol in ``url`` field in the client configuration must be updated to ``https``.
 
-Self-signed server certificates
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using a self-signed server certificate
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``server.crt`` is a file with the server certificate in PEM format.
+To use a self-signed server certificate user must define two configuration parameters:
 
-``server.key`` is a file with the server key in PEM format.
+ * ``server.crt`` is a file with the server certificate in PEM format.
+ * ``server.key`` is a file with the server key in PEM format.
 
 .. code-block:: json
-    :caption: server
+    :caption: Server
 
     "ssl": {
         "server": {
@@ -33,7 +34,7 @@ Self-signed server certificates
     }
 
 .. code-block:: json
-    :caption: client
+    :caption: Client
 
     "ssl": {
         "server": {
@@ -41,17 +42,21 @@ Self-signed server certificates
         }
     }
 
-Signed by a private CA server certificates
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using a CA-signed server certificate
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``server.crt`` is a file with the server certificate in PEM format.
+To use a CA-signed server certificate user must define two configuration parameters for the server:
 
-``server.key`` is a file with the server key in PEM format.
+ * ``server.crt`` is a file with a sequence of certificates, the first being the leaf certificate, and the remainder forming the chain of certificates up to and including the trusted root certificate.
+ * ``server.key`` is a file with the server key in PEM format.
 
-``ca.crt`` is a file with the CA certificate in PEM format.
+The client configuration must contain the CA certificate:
+
+ * ``ca.crt`` is a file with the CA certificate in PEM format.
+
 
 .. code-block:: json
-    :caption: server
+    :caption: Server
 
     "ssl": {
         "server": {
@@ -61,7 +66,7 @@ Signed by a private CA server certificates
     }
 
 .. code-block:: json
-    :caption: client
+    :caption: Client
 
     "ssl": {
         "server": {
@@ -69,12 +74,14 @@ Signed by a private CA server certificates
         }
     }
 
-Signed by a public CA server certificates
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Public CA-signed server certificate
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``server.crt`` is a file with a sequence of certificates, the first being the leaf certificate, and the remainder forming the chain of certificates up to and including the trusted root certificate.
+To use a public CA-signed server certificate user must define two configuration parameters for the server:
 
-``server.key`` is a file with the server key in PEM format.
+ * ``server.crt`` is a file with a sequence of certificates, the first being the leaf certificate, and the remainder forming the chain of certificates up to and including the trusted root certificate.
+ * ``server.key`` is a file with the server key in PEM format.
+
 
 .. code-block:: json
     :caption: server
@@ -89,17 +96,17 @@ Signed by a public CA server certificates
 Client certificate authentication
 ---------------------------------
 
-Client certificate authentication is an optional feature in Media Gateway. Only signed by CA client certificates can be used. Certificates should be in PEM format.
+Client certificate authentication is an authentication mechanism based on X509 certificates. Only CA-signed client certificates can be used for that. Certificates must be in PEM format.
 
-The server uses a store with trusted X509 certificates to verify peer certificates. The store automatically (without a server restart) loads certificates and CRLs from the specified directory. Certificates and CRLs should be added to the directory in accordance with `X509_LOOKUP_hash_dir method <https://www.openssl.org/docs/man1.1.1/man3/X509_LOOKUP_hash_dir.html>`__ requirements. For each certificate at least one CRL must be in the directory. CRL might be without revoked certificates. A new CRL must be loaded when the previous CRL is expired.
+The server uses a store with trusted X509 certificates to verify peer certificates. The store automatically (without a server restart) loads certificates and CRLs from the specified directory. Certificates and CRLs must be added to the directory in accordance with `X509_LOOKUP_hash_dir method <https://www.openssl.org/docs/man1.1.1/man3/X509_LOOKUP_hash_dir.html>`__ requirements. For each certificate at least one CRL must be in the directory. The CRL may contain no revoked certificates. A new CRL must be loaded when the previous CRL is expired.
 
-``ca.crt`` is a file with the CA certificate in PEM format.
+To enable client certificate authentication in Media Gateway update both server and client configuration:
 
-``ca.crl`` is a file with CRL in PEM format.
+ * the ``ca.crt`` parameters defines a file with the CA certificate in PEM format.
+ * the ``ca.crl`` parameter defines a file with CRL in PEM format.
+ * ``/opt/etc/store`` is a directory with CA certificates and CRLs.
 
-``/opt/etc/store`` is a directory with CA certificates and CRLs.
-
-To add a new certificate and corresponding CRL
+To add a new certificate and corresponding CRL:
 
 .. code-block:: bash
 

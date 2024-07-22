@@ -1,10 +1,10 @@
-Server API
-==========
+RESTful API
+===========
 
-Health
-------
+Health Check
+-------------
 
-The server has a health endpoint.
+The server and client provide a health check endpoint available for the end-user.
 
 .. code-block::
 
