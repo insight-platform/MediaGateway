@@ -31,6 +31,7 @@ use crate::service::GatewayClientService;
 
 mod client;
 pub mod configuration;
+mod retry;
 mod service;
 mod wait;
 

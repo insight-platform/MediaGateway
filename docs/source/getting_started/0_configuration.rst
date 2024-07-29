@@ -151,6 +151,9 @@ The client configuration consist of following fields:
     * - url
       - An endpoint of the media gateway service to accept messages.
       - yes
+    * - retry_strategy
+      - A strategy how to retry to send a message to the media gateway service. The default value is an exponential strategy with the initial delay 1 ms, the maximum delay 1 sec and the multiplier 2.
+      - no
     * - in_stream
       - A configuration how to read from the source ZeroMQ.
       - yes
@@ -166,6 +169,74 @@ The client configuration consist of following fields:
     * - statistics
       - Statistics settings.
       - no
+
+retry_strategy
+^^^^^^^^^^^^^^
+
+There is only one retry strategy - exponential. The strategy executes next attempt after the delay which is calculated for each attempt. The delay for the first attempt is the initial delay. The delay for subsequent attempts is calculated as maximum between multiplication of last attempt delay by the specified multiplier and the maximum delay.
+
+Retry strategy is an object with the following schema
+
+.. code-block:: json
+
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "Media Gateway Client retry strategy schema",
+      "anyOf": [
+        {
+          "description": "A strategy that executes next attempt after a delay that starts from the initial delay and increases (multiplying by the specified multiplier) with each attempt up to the maximum.",
+          "type": "object",
+          "properties": {
+            "exponential": {
+              "type": "object",
+              "properties": {
+                "initial_delay": {
+                  "description": "The delay for the first attempt.",
+                  "$ref": "#/$defs/duration"
+                },
+                "maximum_delay": {
+                  "description": "The maximum delay",
+                  "$ref": "#/$defs/duration"
+                },
+                "multiplier": {
+                  "description": "A multiplier to calculate the delay for next attempt by multiplying last attempt delay.",
+                  "type": "integer",
+                  "minimum": 2
+                }
+              },
+              "required": [
+                "initial_delay",
+                "maximum_delay",
+                "multiplier"
+              ]
+            }
+          },
+          "required": [
+            "exponential"
+          ]
+        }
+      ],
+      "$defs": {
+        "duration": {
+          "description": "A duration composed of a whole number of seconds and a fractional part represented in nanoseconds.",
+          "type": "object",
+          "properties": {
+            "secs": {
+              "description": "Duration seconds.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "nanos": {
+              "description": "Duration nanoseconds.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999999999
+            }
+          },
+          "required": ["secs", "nanos"]
+        }
+      }
+    }
 
 in_stream
 ^^^^^^^^^

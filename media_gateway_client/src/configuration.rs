@@ -9,6 +9,7 @@ use twelf::{config, Layer};
 
 use media_gateway_common::configuration::{BasicUser, StatisticsConfiguration};
 
+use crate::retry::RetryStrategy;
 use crate::wait::WaitStrategy;
 
 /// SSL settings to connect to the media gateway server.
@@ -49,6 +50,8 @@ pub struct AuthConfiguration {
 pub struct GatewayClientConfiguration {
     /// An endpoint of the media gateway service to accept messages
     pub url: String,
+    /// A strategy how to retry to send a message to the media gateway service
+    pub retry_strategy: Option<RetryStrategy>,
     /// Reader configuration
     pub in_stream: SourceConfiguration,
     /// A strategy how to wait for data while reading
