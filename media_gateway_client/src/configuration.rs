@@ -9,6 +9,8 @@ use twelf::{config, Layer};
 
 use media_gateway_common::configuration::{BasicUser, StatisticsConfiguration};
 
+use crate::wait::WaitStrategy;
+
 /// SSL settings to connect to the media gateway server.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SslConfiguration {
@@ -49,6 +51,8 @@ pub struct GatewayClientConfiguration {
     pub url: String,
     /// Reader configuration
     pub in_stream: SourceConfiguration,
+    /// A strategy how to wait for data while reading
+    pub wait_strategy: Option<WaitStrategy>,
     /// SSL settings
     pub ssl: Option<SslConfiguration>,
     /// Authentication settings

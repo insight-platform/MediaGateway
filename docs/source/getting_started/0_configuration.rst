@@ -154,6 +154,9 @@ The client configuration consist of following fields:
     * - in_stream
       - A configuration how to read from the source ZeroMQ.
       - yes
+    * - wait_strategy
+      - A strategy how to wait for data from the source ZeroMQ. The default value is 1 ms sleep strategy.
+      - no
     * - auth
       - Authentication settings.
       - no
@@ -194,6 +197,59 @@ in_stream
     * - inflight_ops
       - The maximum number of read messages for non-blocking mode.
       - yes
+
+.. _wait strategy:
+
+wait_strategy
+^^^^^^^^^^^^^
+
+There are two wait strategies:
+
+* yield
+
+A strategy that pauses execution using `Tokio yield_now <https://docs.rs/tokio/1.39.2/tokio/task/fn.yield_now.html>`__.
+
+* sleep
+
+A strategy that pauses execution using `tokio_timerfd sleep <https://docs.rs/tokio-timerfd/0.2.0/tokio_timerfd/fn.sleep.html>`__ for the specified duration with nanosecond precision.
+
+Wait strategy is an object with the following schema
+
+.. code-block:: json
+
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "Media Gateway Client wait strategy schema",
+      "anyOf": [
+        {
+          "description": "A strategy that pauses execution using https://docs.rs/tokio/1.39.2/tokio/task/fn.yield_now.html.",
+          "type": "string",
+          "pattern": "^yield$"
+        },
+        {
+          "description": "A strategy that pauses execution using https://docs.rs/tokio-timerfd/0.2.0/tokio_timerfd/fn.sleep.html for the specified duration with nanosecond precision.",
+          "type": "object",
+          "properties": {
+            "sleep": {
+              "description": "A duration to sleep composed of a whole number of seconds and a fractional part represented in nanoseconds.",
+              "type": "object",
+              "properties": {
+                "secs": {
+                  "description": "Duration seconds.",
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "nanos": {
+                  "description": "Duration nanoseconds.",
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
 
 auth
 ^^^^

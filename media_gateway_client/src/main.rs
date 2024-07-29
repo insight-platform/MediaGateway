@@ -32,6 +32,7 @@ use crate::service::GatewayClientService;
 mod client;
 pub mod configuration;
 mod service;
+mod wait;
 
 #[tokio::main]
 async fn main() -> Result<()> {

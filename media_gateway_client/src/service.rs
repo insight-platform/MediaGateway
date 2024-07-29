@@ -1,4 +1,5 @@
 use std::sync::{Arc, OnceLock};
+use std::time::Duration;
 
 use anyhow::{bail, Result};
 use savant_core::transport::zeromq::{NonBlockingReader, ReaderResult};
@@ -10,6 +11,7 @@ use media_gateway_common::statistics::StatisticsService;
 
 use crate::client::{ForwardResult, GatewayClient};
 use crate::configuration::GatewayClientConfiguration;
+use crate::wait::WaitStrategy;
 
 const STAT_STAGE_NAME: &str = "client-relay";
 
@@ -17,6 +19,7 @@ pub struct GatewayClientService {
     channel_size: usize,
     client: Arc<GatewayClient>,
     reader: Arc<Mutex<NonBlockingReader>>,
+    wait_strategy: WaitStrategy,
     statistics_service: Arc<Option<StatisticsService>>,
     started: Arc<OnceLock<()>>,
     stopped: Arc<OnceLock<()>>,
@@ -26,6 +29,7 @@ impl GatewayClientService {
     pub fn new(
         client: GatewayClient,
         reader: NonBlockingReader,
+        wait_strategy: WaitStrategy,
         channel_size: usize,
         statistics_service: Option<StatisticsService>,
     ) -> Self {
@@ -33,6 +37,7 @@ impl GatewayClientService {
             channel_size,
             client: Arc::new(client),
             reader: Arc::new(Mutex::new(reader)),
+            wait_strategy,
             statistics_service: Arc::new(statistics_service),
             started: Arc::new(OnceLock::new()),
             stopped: Arc::new(OnceLock::new()),
@@ -50,6 +55,7 @@ impl GatewayClientService {
 
         let reader_lock = self.reader.clone();
         let reader_stopped = self.stopped.clone();
+        let reader_wait_strategy = self.wait_strategy.clone();
         let reader_statistics_service = self.statistics_service.clone();
 
         let reader_task = tokio::spawn(async move {
@@ -63,7 +69,7 @@ impl GatewayClientService {
                 let receive_result = reader.try_receive();
                 if receive_result.is_none() {
                     log::trace!("No message received, yielding");
-                    yield_now().await;
+                    reader_wait_strategy.wait().await;
                     continue;
                 }
                 match receive_result.unwrap() {
@@ -204,9 +210,14 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClientService {
         } else {
             None
         };
+        let wait_strategy = match &configuration.wait_strategy {
+            Some(strategy) => strategy.clone(),
+            None => WaitStrategy::Sleep(Duration::from_millis(1)),
+        };
         Ok(GatewayClientService::new(
             client,
             reader,
+            wait_strategy,
             configuration.in_stream.inflight_ops,
             statistics_service,
         ))

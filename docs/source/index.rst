@@ -34,3 +34,9 @@ Features
 
    cookbook/0_tls
    cookbook/1_usage_example
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Miscellaneous
+
+   miscellaneous/0_troubleshooting
