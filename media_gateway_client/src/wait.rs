@@ -16,9 +16,7 @@ impl WaitStrategy {
     pub async fn wait(&self) {
         match self {
             WaitStrategy::Yield => yield_now().await,
-            WaitStrategy::Sleep(duration) => {
-                sleep(duration.clone()).await.expect("Error while sleeping")
-            }
+            WaitStrategy::Sleep(duration) => sleep(*duration).await.expect("Error while sleeping"),
         }
     }
 }
