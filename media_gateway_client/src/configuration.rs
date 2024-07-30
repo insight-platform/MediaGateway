@@ -47,6 +47,10 @@ pub struct AuthConfiguration {
 #[config]
 #[derive(Debug, Serialize)]
 pub struct GatewayClientConfiguration {
+    /// A string representation of an IP address or a host name to bind to
+    pub ip: String,
+    /// A port to bind to
+    pub port: u16,
     /// An endpoint of the media gateway service to accept messages
     pub url: String,
     /// Reader configuration

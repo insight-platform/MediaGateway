@@ -26,7 +26,7 @@ Features
    :maxdepth: 1
    :caption: Reference
 
-   reference/0_server_api
+   reference/0_api
 
 .. toctree::
    :maxdepth: 1

@@ -62,13 +62,14 @@ To run the server with another configuration (``/home/user/server_config.json``)
 Client
 ------
 
-To run the client with `the default configuration <https://github.com/insight-platform/MediaGateway/tree/main/samples/configuration/client/default_config.json>`__ and to mount ``/tmp`` directory
+To run the client with `the default configuration <https://github.com/insight-platform/MediaGateway/tree/main/samples/configuration/client/default_config.json>`__, to mount ``/tmp`` directory and publish the port from the default configuration
 
 .. code-block:: bash
     :caption: x86_64
 
     docker run \
         -v /tmp:/tmp \
+        -p 8081:8081 \
         -e "GATEWAY_URL=<GATEWAY_URL>" \
         ghcr.io/insight-platform/media-gateway-client-x86:latest
 
@@ -77,6 +78,7 @@ To run the client with `the default configuration <https://github.com/insight-pl
 
     docker run \
         -v /tmp:/tmp \
+        -p 8081:8081 \
         -e "GATEWAY_URL=<GATEWAY_URL>" \
         ghcr.io/insight-platform/media-gateway-client-arm64:latest
 
@@ -89,6 +91,7 @@ To run the server with another configuration (``/home/user/client_config.json``)
 
     docker run \
         -v /home/user/client_config.json:/opt/etc/custom_config.json \
+        -p <HOST_PORT>:<CONFIG_PORT> \
         ghcr.io/insight-platform/media-gateway-client-x86:latest \
         /opt/etc/custom_config.json
 
@@ -97,5 +100,8 @@ To run the server with another configuration (``/home/user/client_config.json``)
 
     docker run \
         -v /home/user/client_config.json:/opt/etc/custom_config.json \
+        -p <HOST_PORT>:<CONFIG_PORT> \
         ghcr.io/insight-platform/media-gateway-client-arm64:latest \
         /opt/etc/custom_config.json
+
+where ``<CONFIG_PORT>`` is the port specified in the configuration file and ``<HOST_PORT>`` is the port on the host machine.

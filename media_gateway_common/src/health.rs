@@ -25,9 +25,15 @@ impl HealthService {
     }
 }
 
+impl Default for HealthService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::server::service::health::{HealthService, HEALTHY_STATE};
+    use crate::health::{HealthService, HEALTHY_STATE};
 
     #[test]
     pub fn current_state() {

@@ -61,12 +61,13 @@ use openssl::x509::store::{X509Lookup, X509StoreBuilder};
 use openssl::x509::verify::X509VerifyFlags;
 use tokio::sync::Mutex;
 
+use media_gateway_common::api::health;
+use media_gateway_common::health::HealthService;
 use server::configuration::GatewayConfiguration;
 
-use crate::server::api::{gateway, health};
+use crate::server::api::gateway;
 use crate::server::security::basic_auth_validator;
 use crate::server::service::gateway::GatewayService;
-use crate::server::service::health::HealthService;
 use crate::server::service::user::UserService;
 
 mod server;

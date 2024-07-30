@@ -1,4 +1,6 @@
 {
+  "ip": "0.0.0.0",
+  "port": 8081,
   "url": "https://nginx:443",
   "ssl": {
     "server": {
