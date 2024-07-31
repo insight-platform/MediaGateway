@@ -9,7 +9,7 @@
 //! ```
 //!
 //! Following features are supported:
-//! * SSL (including a self-signed PEM encoded certificate)
+//! * TLS (including a self-signed PEM encoded certificate)
 //! * client certificate authentication
 //! * basic authentication with an in-memory user data storage
 //!
@@ -168,18 +168,18 @@ fn main() -> Result<()> {
             )
     });
 
-    http_server = if let Some(ssl_conf) = conf.ssl {
+    http_server = if let Some(ssl_conf) = conf.tls {
         let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
-        builder.set_private_key_file(ssl_conf.identity.certificate_key, SslFiletype::PEM)?;
+        builder.set_private_key_file(ssl_conf.identity.key, SslFiletype::PEM)?;
         builder.set_certificate_chain_file(ssl_conf.identity.certificate)?;
 
-        builder = if let Some(client_ssl_conf) = &ssl_conf.client {
+        builder = if let Some(peer_lookup_hash_directory) = &ssl_conf.peer_lookup_hash_directory {
             let mut cert_store_builder = X509StoreBuilder::new().unwrap();
 
             let lookup_method = X509Lookup::hash_dir();
             let lookup = cert_store_builder.add_lookup(lookup_method).unwrap();
             lookup
-                .add_dir(&client_ssl_conf.certificate_directory, SslFiletype::PEM)
+                .add_dir(peer_lookup_hash_directory.as_str(), SslFiletype::PEM)
                 .unwrap();
 
             cert_store_builder

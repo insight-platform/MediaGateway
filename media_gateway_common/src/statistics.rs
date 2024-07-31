@@ -66,9 +66,16 @@ impl TryFrom<(&StatisticsConfiguration, &str)> for StatisticsService {
         if configuration.frame_period.is_none() && configuration.timestamp_period.is_none() {
             bail!("At least one of frame_period and timestamp_period should be specified")
         }
+        let timestamp_period = match configuration.timestamp_period {
+            Some(duration) => {
+                let duration_ms = i64::try_from(duration.as_millis())?;
+                Some(duration_ms)
+            }
+            None => None,
+        };
         let pipeline_configuration = PipelineConfigurationBuilder::default()
             .collection_history(configuration.history_size)
-            .timestamp_period(configuration.timestamp_period)
+            .timestamp_period(timestamp_period)
             .frame_period(configuration.frame_period)
             .build()?;
 

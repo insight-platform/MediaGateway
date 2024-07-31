@@ -4,12 +4,12 @@
   "auth": {
     "basic": {
       "etcd": {
-        "urls": "http://localhost:2379",
+        "urls": "http://etcd:2379",
         "tls": {
-          "server_certificate": "etcd-ca.pem",
+          "root_certificate": "etcd-ca.crt",
           "identity": {
-            "certificate": "etcd-client-cert.pem",
-            "certificate_key": "etcd-client-key.pem"
+            "certificate": "etcd-client.crt",
+            "key": "etcd-client.key"
           }
         },
         "path": "/users",

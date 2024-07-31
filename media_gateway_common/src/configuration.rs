@@ -2,6 +2,7 @@
 //!
 //! The module provides [`Credentials`].
 use core::fmt;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +42,7 @@ impl Clone for Credentials {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientTlsConfiguration {
     /// A path to a self-signed PEM encoded server certificate or PEM encoded CA certificate
-    pub server_certificate: Option<String>,
+    pub root_certificate: Option<String>,
     /// The identity to be used for client certificate authentication.
     pub identity: Option<Identity>,
 }
@@ -52,7 +53,7 @@ pub struct Identity {
     /// A path to a chain of PEM encoded X509 certificates, with the leaf certificate first
     pub certificate: String,
     /// A path to a PEM encoded private key
-    pub certificate_key: String,
+    pub key: String,
 }
 
 /// Statistics settings. At least one of frame_period and timestamp_period should be specified.
@@ -61,7 +62,7 @@ pub struct StatisticsConfiguration {
     /// Statistics based on frame period
     pub frame_period: Option<i64>,
     /// Statistics based on timestamp period
-    pub timestamp_period: Option<i64>,
+    pub timestamp_period: Option<Duration>,
     /// A size of a history to be stored
     pub history_size: usize,
 }

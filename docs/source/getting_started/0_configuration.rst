@@ -26,8 +26,8 @@ The server configuration consists of following fields:
     * - auth
       - Authentication settings.
       - no
-    * - ssl
-      - HTTPS and client certificate authentication settings.
+    * - tls
+      - TLS settings.
       - no
     * - statistics
       - Statistics settings.
@@ -170,7 +170,7 @@ The only supported authentication type is ``basic``. Provided user names and pas
     * - etcd.tls
       - TLS options to use while connecting to etcd servers.
       - false
-    * - etcd.tls.server_certificate
+    * - etcd.tls.root_certificate
       - CA certificate against which to verify the etcd server's TLS certificate.
       - false
     * - etcd.tls.identity
@@ -179,7 +179,7 @@ The only supported authentication type is ``basic``. Provided user names and pas
     * - etcd.tls.identity.certificate
       - A path to a chain of PEM encoded certificates, with the leaf certificate first.
       - true
-    * - etcd.tls.identity.certificate_key
+    * - etcd.tls.identity.key
       - A path to a PEM encoded private key
       - true
     * - etcd.credentials
@@ -234,7 +234,7 @@ cache
       - The positive integer number of keys allowed for eviction for the period.
       - true
 
-ssl
+tls
 ^^^
 .. list-table::
     :header-rows: 1
@@ -248,15 +248,12 @@ ssl
     * - identity.certificate
       - A path to a PEM encoded certificate (can be a self-signed certificate).
       - yes
-    * - identity.certificate_key
+    * - identity.key
       - A path to a private key for the certificate.
       - yes
-    * - client
-      - Client certificate authentication settings.
-      - no
-    * - client.certificate_directory
+    * - peer_lookup_hash_directory
       - A directory with certificates and CRLs to verify client certificates. See `X509_LOOKUP_hash_dir method <https://www.openssl.org/docs/man1.1.1/man3/X509_LOOKUP_hash_dir.html>`_ for more details.
-      - yes
+      - no
 
 statistics
 ^^^^^^^^^^
@@ -273,7 +270,7 @@ At least one of ``frame_period`` and ``timestamp_period`` should be specified.
       - A frame period
       - no
     * - timestamp_period
-      - A timestamp period
+      - A timestamp period in the duration format with millisecond precision, e.g. ``{"secs": 1, "nanos": 0}``
       - no
     * - history_size
       - A size of a history to be stored
@@ -311,8 +308,8 @@ The client configuration consist of following fields:
     * - auth
       - Authentication settings.
       - no
-    * - ssl
-      - HTTPS and client certificate authentication settings.
+    * - tls
+      - TLS settings.
       - no
     * - statistics
       - Statistics settings.
@@ -484,7 +481,7 @@ The only supported authentication type is ``basic``.
         }
     }
 
-ssl
+tls
 ^^^
 .. list-table::
     :header-rows: 1
@@ -492,7 +489,7 @@ ssl
     * - Field
       - Description
       - Mandatory
-    * - server_certificate
+    * - root_certificate
       - A path to a self-signed PEM encoded server certificate or PEM encoded CA certificate
       - yes
     * - identity
@@ -501,7 +498,7 @@ ssl
     * - identity.certificate
       - A path to a chain of PEM encoded X509 certificates, with the leaf certificate first.
       - yes
-    * - identity.certificate_key
+    * - identity.key
       - A path to a PEM encoded PKCS #8 formatted private key
       - yes
 
@@ -520,7 +517,7 @@ At least one of ``frame_period`` and ``timestamp_period`` should be specified.
       - A frame period
       - no
     * - timestamp_period
-      - A timestamp period
+      - A timestamp period in the duration format with millisecond precision, e.g. ``{"secs": 1, "nanos": 0}``
       - no
     * - history_size
       - A size of a history to be stored

@@ -11,7 +11,7 @@
 //! ```
 //!
 //! Following features are supported:
-//! * SSL (including a self-signed PEM encoded certificate)
+//! * TLS (including a self-signed PEM encoded certificate)
 //! * client certificate authentication
 //! * basic authentication
 //!
