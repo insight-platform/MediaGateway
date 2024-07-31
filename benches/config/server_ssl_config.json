@@ -7,7 +7,7 @@
       "certificate_key": "/etc/certs/server.key"
     },
     "client": {
-      "certificate_directory": "/etc/certs/client"
+      "certificate_directory": "/etc/certs/lookup-hash-dir"
     }
   },
   "out_stream": {
