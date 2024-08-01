@@ -20,6 +20,8 @@ services:
       video-loop:
         aliases:
           - media-gateway-client
+    ports:
+      - 8081:8081
     depends_on:
       - media-gateway-server
     volumes:

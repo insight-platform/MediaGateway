@@ -1,4 +1,6 @@
 {
+  "ip": "0.0.0.0",
+  "port": 8081,
   "url": "${GATEWAY_URL:-http://localhost:8080/}",
   "in_stream": {
     "url": "sub+bind:ipc:///tmp/client",

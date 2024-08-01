@@ -148,6 +148,12 @@ The client configuration consist of following fields:
     * - Field
       - Description
       - Mandatory
+    * - ip
+      - A string representation of an IP address or a host name to bind to. Both IPv4 or IPv6 are supported. If the host name is specified the server is bound to both the IPv4 and IPv6 addresses that result from a DNS lookup.
+      - yes
+    * - port
+      - A port to bind to.
+      - yes
     * - url
       - An endpoint of the media gateway service to accept messages.
       - yes

@@ -22,9 +22,13 @@
 use std::env::args;
 use std::sync::Arc;
 
+use actix_web::{web, App, HttpServer};
 use anyhow::{anyhow, Result};
 use log::info;
 use tokio::signal::{ctrl_c, unix};
+
+use media_gateway_common::api::health;
+use media_gateway_common::health::HealthService;
 
 use crate::configuration::GatewayClientConfiguration;
 use crate::service::GatewayClientService;
@@ -52,7 +56,9 @@ async fn main() -> Result<()> {
     info!("Configuration: {}", conf_arg);
 
     let conf = GatewayClientConfiguration::new(&conf_arg)?;
+    let bind_address = (conf.ip.as_str(), conf.port);
 
+    let health_service = web::Data::new(HealthService::new());
     let service = Arc::new(GatewayClientService::try_from(&conf)?);
     let service_to_stop = service.clone();
 
@@ -71,5 +77,15 @@ async fn main() -> Result<()> {
             .expect("Error while stopping the service");
     });
 
-    service.run().await
+    tokio::spawn(async move { service.run().await });
+
+    HttpServer::new(move || {
+        App::new()
+            .app_data(health_service.clone())
+            .route("/health", web::get().to(health))
+    })
+    .bind(bind_address)?
+    .run()
+    .await
+    .map_err(anyhow::Error::from)
 }

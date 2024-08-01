@@ -20,6 +20,8 @@ services:
       multi-stream-source:
         aliases:
           - media-gateway-client
+    ports:
+      - 8081:8081
     depends_on:
       - nginx
     volumes:

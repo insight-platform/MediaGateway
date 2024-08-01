@@ -3,4 +3,8 @@ pub mod model;
 
 pub mod configuration;
 
+pub mod health;
+
+pub mod api;
+
 pub mod statistics;

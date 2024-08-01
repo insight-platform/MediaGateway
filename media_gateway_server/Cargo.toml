@@ -19,13 +19,12 @@ twelf = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 log = { workspace = true }
 env_logger = { workspace = true }
+actix-web = { workspace = true }
+actix-protobuf = { workspace = true }
+actix-web-httpauth = { workspace = true }
+openssl = { workspace = true }
 
 media_gateway_common = { path = "../media_gateway_common" }
-
-actix-web = { version = "4", features = ["openssl"] }
-actix-protobuf = "0.10"
-actix-web-httpauth = "0.8.2"
-openssl = "0.10"
 
 [dev-dependencies]
 savant-protobuf = { workspace = true }
