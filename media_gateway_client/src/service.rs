@@ -1,16 +1,17 @@
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use savant_core::transport::zeromq::{NonBlockingReader, ReaderResult};
 use tokio::sync::{mpsc, Mutex};
-use tokio::task::yield_now;
+use tokio_timerfd::sleep;
 
 use media_gateway_common::model::Media;
 use media_gateway_common::statistics::StatisticsService;
 
 use crate::client::{ForwardResult, GatewayClient};
 use crate::configuration::GatewayClientConfiguration;
+use crate::retry::{Retry, RetryStrategy};
 use crate::wait::WaitStrategy;
 
 const STAT_STAGE_NAME: &str = "client-relay";
@@ -20,6 +21,7 @@ pub struct GatewayClientService {
     client: Arc<GatewayClient>,
     reader: Arc<Mutex<NonBlockingReader>>,
     wait_strategy: WaitStrategy,
+    retry_strategy: RetryStrategy,
     statistics_service: Arc<Option<StatisticsService>>,
     started: Arc<OnceLock<()>>,
     stopped: Arc<OnceLock<()>>,
@@ -30,6 +32,7 @@ impl GatewayClientService {
         client: GatewayClient,
         reader: NonBlockingReader,
         wait_strategy: WaitStrategy,
+        retry_strategy: RetryStrategy,
         channel_size: usize,
         statistics_service: Option<StatisticsService>,
     ) -> Self {
@@ -38,6 +41,7 @@ impl GatewayClientService {
             client: Arc::new(client),
             reader: Arc::new(Mutex::new(reader)),
             wait_strategy,
+            retry_strategy,
             statistics_service: Arc::new(statistics_service),
             started: Arc::new(OnceLock::new()),
             stopped: Arc::new(OnceLock::new()),
@@ -128,11 +132,12 @@ impl GatewayClientService {
 
         let client = self.client.clone();
         let sender_statistics_service = self.statistics_service.clone();
+        let sender_retry_strategy = self.retry_strategy.clone();
 
         let sender_task: tokio::task::JoinHandle<Result<()>> = tokio::spawn(async move {
             log::info!("Message sending is started");
             while let Some((id, media)) = receiver.recv().await {
-                let mut retry: u32 = 0;
+                let mut retry: Option<Retry> = None;
                 loop {
                     let forward_result = client.forward_message(&media).await;
                     match forward_result {
@@ -147,31 +152,38 @@ impl GatewayClientService {
                                     log::warn!("Error while ending message statistics: {:?}", e)
                                 }
                             }
-                            log::debug!("Success while sending message (retry={})", retry);
-                            if retry > 0 {
-                                log::info!("Success while sending message on {} retry", retry);
+                            if retry.is_some() {
+                                log::info!(
+                                    "Success while sending message on {} retry",
+                                    retry.unwrap().number()
+                                );
+                            } else {
+                                log::debug!("Success while sending message (retry=0)");
                             }
                             break;
                         }
                         Ok(result) => {
                             log::warn!(
                                 "Failure while sending message (retry={}): {:?}",
-                                retry,
+                                retry.as_ref().map_or(0, |e| e.number()),
                                 result
                             );
                         }
                         Err(e) => {
-                            log::warn!("Error while sending message (retry={}): {:?}", retry, e)
+                            log::warn!(
+                                "Error while sending message (retry={}): {:?}",
+                                retry.as_ref().map_or(0, |e| e.number()),
+                                e
+                            )
                         }
                     }
-                    let next_retry = retry.checked_add(1);
-                    retry = if let Some(n) = next_retry {
-                        n
-                    } else {
-                        log::warn!("Retry overflow while sending message, resetting");
-                        0
-                    };
-                    yield_now().await
+                    let next_retry = sender_retry_strategy.next_retry(retry);
+                    let sleep_duration = next_retry.delay();
+                    retry = Some(next_retry);
+                    log::warn!("Next retry after {} nanoseconds", sleep_duration.as_nanos());
+                    sleep(sleep_duration)
+                        .await
+                        .expect("Error while sleeping between attmpts to send a message")
                 }
             }
             log::info!("Message sending is being stopped");
@@ -214,10 +226,35 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClientService {
             Some(strategy) => strategy.clone(),
             None => WaitStrategy::Sleep(Duration::from_millis(1)),
         };
+        let retry_strategy = match &configuration.retry_strategy {
+            Some(RetryStrategy::Exponential {
+                initial_delay,
+                maximum_delay,
+                multiplier,
+            }) => {
+                if initial_delay > maximum_delay {
+                    return Err(anyhow!("Invalid initial_delay: greater than maximum_delay"));
+                }
+                if *multiplier < 2 {
+                    return Err(anyhow!("Invalid multiplier: less than 2"));
+                }
+                RetryStrategy::Exponential {
+                    initial_delay: *initial_delay,
+                    maximum_delay: *maximum_delay,
+                    multiplier: *multiplier,
+                }
+            }
+            None => RetryStrategy::Exponential {
+                initial_delay: Duration::from_millis(1),
+                maximum_delay: Duration::from_secs(1),
+                multiplier: 2,
+            },
+        };
         Ok(GatewayClientService::new(
             client,
             reader,
             wait_strategy,
+            retry_strategy,
             configuration.in_stream.inflight_ops,
             statistics_service,
         ))
