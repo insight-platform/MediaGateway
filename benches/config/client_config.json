@@ -16,7 +16,6 @@
     "inflight_ops": 100
   },
   "statistics": {
-    "frame_period": 1000,
-    "history_size": 1000
+    "frame_period": 1000
   }
 }

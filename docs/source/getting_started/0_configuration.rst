@@ -264,7 +264,7 @@ tls
 statistics
 ^^^^^^^^^^
 
-At least one of ``frame_period`` and ``timestamp_period`` should be specified.
+Exactly one of ``frame_period`` and ``timestamp_period`` must be specified.
 
 .. list-table::
     :header-rows: 1
@@ -278,9 +278,6 @@ At least one of ``frame_period`` and ``timestamp_period`` should be specified.
     * - timestamp_period
       - A timestamp period in the duration format with millisecond precision, e.g. ``{"secs": 1, "nanos": 0}``
       - no
-    * - history_size
-      - A size of a history to be stored
-      - yes
 
 Client
 ------
@@ -511,7 +508,7 @@ tls
 statistics
 ^^^^^^^^^^
 
-At least one of ``frame_period`` and ``timestamp_period`` should be specified.
+Exactly one of ``frame_period`` and ``timestamp_period`` must be specified.
 
 .. list-table::
     :header-rows: 1
@@ -525,10 +522,6 @@ At least one of ``frame_period`` and ``timestamp_period`` should be specified.
     * - timestamp_period
       - A timestamp period in the duration format with millisecond precision, e.g. ``{"secs": 1, "nanos": 0}``
       - no
-    * - history_size
-      - A size of a history to be stored
-      - yes
-
 
 Environment variables in configuration files
 --------------------------------------------

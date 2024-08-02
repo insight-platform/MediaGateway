@@ -19,7 +19,6 @@
     "timestamp_period": {
       "secs": 1,
       "nanos": 0
-    },
-    "history_size": 1000
+    }
   }
 }

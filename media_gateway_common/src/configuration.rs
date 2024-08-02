@@ -63,6 +63,4 @@ pub struct StatisticsConfiguration {
     pub frame_period: Option<i64>,
     /// Statistics based on timestamp period
     pub timestamp_period: Option<Duration>,
-    /// A size of a history to be stored
-    pub history_size: usize,
 }
