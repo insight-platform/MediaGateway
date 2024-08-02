@@ -1,16 +1,95 @@
 HTTP Basic authentication
 =========================
 
-Media Gateway can control access to the server via a username/password authentication (HTTP Basic Authentication). HTTP Basic authentication should be used with HTTPS (see :doc:`1_tls`) to provide confidentiality. The only endpoint that is available to anyone is :ref:`a health endpoint <health endpoint>`. Usernames and passwords are taken from `etcd <https://etcd.io/>`__ and cached to decrease deserialization costs. Data in the cache is automatically reloaded from `etcd` when its checksum is changed. An additional cache is used to decrease cryptographic costs. It stores results of authentication checks which are used for subsequent requests if provided credentials are the same and the user password is not changed in `etcd`.
+Media Gateway can control access to the server via a username/password authentication (HTTP Basic Authentication). HTTP Basic authentication should be used with HTTPS (see :doc:`0_https`) to provide confidentiality. The only endpoint that is available to anyone is :ref:`a health endpoint <health endpoint>`. Usernames and passwords are taken from `etcd <https://etcd.io/>`__.
 
 `Savant messages <https://github.com/insight-platform/savant-rs/blob/main/savant_core/src/message.rs>`__ contain routing labels. Media Gateway server can be configured to accept messages from a user only if routing labels are allowed. Allowed labels in the form of `a label filter rule <https://github.com/insight-platform/savant-rs/blob/main/savant_core/src/message/label_filter.rs>`__ are taken from `etcd`.
 
 Prerequisites
 -------------
 
-* `Docker`
-* `openssl`
-* `curl`
+* Docker
+* Docker Compose
+* openssl
+* curl
+
+Configuring Media Gateway
+-------------------------
+
+To use HTTP Basic authentication update server and client configurations. Examples below show the full possible configuration. See :doc:`/reference/0_configuration` and :doc:`/miscellaneous/2_caching` for more details.
+
+.. code-block:: json
+    :caption: server
+
+    "auth": {
+        "basic": {
+            "etcd": {
+                "urls": [
+                    "https://etcd:2379"
+                ],
+                "tls": {
+                    "root_certificate": "etcd-ca.crt",
+                    "identity": {
+                        "certificate": "etcd-client.crt",
+                        "key": "etcd-client.key"
+                    }
+                },
+                "credentials": {
+                    "username": "etcd-user",
+                    "password": "etcd-password"
+                },
+                "path": "/users",
+                "data_format": "json",
+                "lease_timeout": {
+                    "secs": 60,
+                    "nanos": 0
+                },
+                "connect_timeout": {
+                    "secs": 30,
+                    "nanos": 0
+                },
+                "cache": {
+                    "size": 10,
+                    "usage": {
+                        "period": {
+                            "secs": 60,
+                            "nanos": 0
+                        },
+                        "evicted_threshold": 10
+                    }
+                }
+            },
+            "cache": {
+                "size": 10,
+                "usage": {
+                    "period": {
+                        "secs": 60,
+                        "nanos": 0
+                    },
+                    "evicted_threshold": 10
+                }
+            }
+        }
+    }
+
+.. code-block:: json
+    :caption: client
+
+    "auth": {
+        "basic": {
+            "username": "user",
+            "password": "password"
+        }
+    }
+
+where
+
+* ``etcd-ca.crt`` is a file with the CA certificate in PEM format.
+
+* ``etcd-client.crt`` is a file with the client in PEM format.
+
+* ``etcd-client.key`` is a file with the client key in PEM format.
+
 
 Running etcd with TLS authentication
 ------------------------------------
@@ -24,7 +103,7 @@ In order to expose the etcd API to clients outside of the Docker host use the ho
 Generating certificates
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-To generate certificates signed by a private CA
+Generate certificates signed by a private CA
 
 .. code-block:: bash
 
@@ -39,37 +118,32 @@ To generate certificates signed by a private CA
     # Generate server private key
     openssl genpkey -algorithm RSA -out certs/server.key
 
-    # Generate server CSR with SAN
+    # Generate server CSR
     openssl req -new -key certs/server.key -out certs/server.csr -subj "/CN=etcd-server"
 
     # Generate server certificate signed by the CA with IP address subject alternative name
-    openssl x509 -req -days 365 -in certs/server.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/server.crt -extfile <(echo "subjectAltName=IP:127.0.0.1,IP:${HOST_IP}")
+    openssl x509 -req -days 365 -in certs/server.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/server.crt -extfile <(echo "subjectAltName=IP:${HOST_IP}")
 
     # Generate client private key
     openssl genpkey -algorithm RSA -out certs/client.key
 
-    # Generate client CSR with SAN
+    # Generate client CSR
     openssl req -new -key certs/client.key -out certs/client.csr -subj "/CN=etcd-client"
 
     # Generate client certificate signed by the CA
     openssl x509 -req -days 365 -in certs/client.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/client.crt
 
-    chmod 644 certs/ca.key certs/server.key certs/client.key
-
-``certs/*.crt`` is a file with a certificate in PEM format and ``certs/*.key`` is a file with a key in PEM format where ``*`` is a replacement for `ca`, `server` and `client`.
-
 Launching etcd
 ^^^^^^^^^^^^^^
 
-Environment variables below declare the docker image and the port on the host for etcd. Note that the password is passed in a non-secure way (it will be seen in the command history) and `root` etcd user is used for simplicity.
+Environment variables below declare the docker image and the port on the host for etcd.
 
 .. code-block:: bash
 
     ETCD_IMAGE="bitnami/etcd:3.5"
     ETCD_PORT=42379
-    ETCD_ROOT_PASSWORD="etcd-password"
 
-To start etcd
+Launch etcd
 
 .. code-block:: bash
 
@@ -81,7 +155,7 @@ To start etcd
         -e ETCD_LISTEN_CLIENT_URLS=https://0.0.0.0:2379 \
         -e ETCD_ADVERTISE_CLIENT_URLS=https://0.0.0.0:$ETCD_PORT \
         -e ETCD_CLIENT_CERT_AUTH=true \
-        -e ETCD_ROOT_PASSWORD=$ETCD_ROOT_PASSWORD \
+        -e ALLOW_NONE_AUTHENTICATION=yes \
         -v $(pwd)/certs:/etc/certs \
         --name etcd \
         $ETCD_IMAGE
@@ -205,7 +279,7 @@ User data in `etcd` are stored as an object in JSON/YAML format with the followi
 Saving user data
 ^^^^^^^^^^^^^^^^
 
-To store data with a password `password1` for a user with the name `user1` in etcd under the path `/users`
+Save data with a password `password1` for a user with the name `user1` in etcd under the path `/users`
 
 .. code-block:: bash
 
@@ -216,113 +290,99 @@ To store data with a password `password1` for a user with the name `user1` in et
         --cacert /etc/certs/ca.crt \
         --cert /etc/certs/client.crt \
         --key /etc/certs/client.key \
-        --user=root:$ETCD_ROOT_PASSWORD \
         --endpoints https://$HOST_IP:$ETCD_PORT \
         put \
         /users/user1 \
         '{"password_hash": "$argon2i$v=19$m=12,t=3,p=1$YXkzZmx1eTFwVW5hZ0R2S1dXazA$VxVMw2Omh1CeVqry8Cay+4OZ69OGvn4fma2M5rURZhI"}'
 
-Running Media Gateway server with HTTP Basic authentication
------------------------------------------------------------
+Testing
+-------
 
-Preparing a configuration file
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Server
+^^^^^^
 
-The configuration below does not contain TLS settings for simplicity. For production HTTP Basic authentication should be used with HTTPS (see :doc:`1_tls`).
+To test the server only prepare a configuration file. The configuration below does not contain TLS settings for simplicity. For production HTTP Basic authentication should be used with HTTPS (see :doc:`0_https`).
 
 .. code-block:: bash
 
-    echo "{
-        \"ip\": \"0.0.0.0\",
-        \"port\": 8080,
-        \"auth\": {
-            \"basic\": {
-                \"etcd\": {
-                    \"urls\": [
-                        \"https://$HOST_IP:$ETCD_PORT\"
+    cat << EOF > media-gateway-server.json
+    {
+        "ip": "0.0.0.0",
+        "port": 8080,
+        "auth": {
+            "basic": {
+                "etcd": {
+                    "urls": [
+                        "https://$HOST_IP:$ETCD_PORT"
                     ],
-                    \"credentials\": {
-                        \"username\": \"root\",
-                        \"password\": \"etcd-password\"
-                    },
-                    \"tls\": {
-                        \"root_certificate\": \"/etc/certs/ca.crt\",
-                        \"identity\": {
-                            \"certificate\": \"/etc/certs/client.crt\",
-                            \"key\": \"/etc/certs/client.key\"
+                    "tls": {
+                        "root_certificate": "/etc/certs/ca.crt",
+                        "identity": {
+                            "certificate": "/etc/certs/client.crt",
+                            "key": "/etc/certs/client.key"
                         }
                     },
-                    \"path\": \"/users\",
-                    \"data_format\": \"json\",
-                    \"lease_timeout\": {
-                        \"secs\": 60,
-                        \"nanos\": 0
+                    "path": "/users",
+                    "data_format": "json",
+                    "lease_timeout": {
+                        "secs": 60,
+                        "nanos": 0
                     },
-                    \"connect_timeout\": {
-                        \"secs\": 30,
-                        \"nanos\": 0
+                    "connect_timeout": {
+                        "secs": 30,
+                        "nanos": 0
                     },
-                    \"cache\": {
-                        \"size\": 10,
-                        \"usage\": {
-                            \"period\": {
-                                \"secs\": 60,
-                                \"nanos\": 0
+                    "cache": {
+                        "size": 10,
+                        "usage": {
+                            "period": {
+                                "secs": 60,
+                                "nanos": 0
                             },
-                            \"evicted_threshold\": 10
+                            "evicted_threshold": 10
                         }
                     }
                 },
-                \"cache\": {
-                    \"size\": 10,
-                    \"usage\": {
-                        \"period\": {
-                            \"secs\": 60,
-                            \"nanos\": 0
+                "cache": {
+                    "size": 10,
+                    "usage": {
+                        "period": {
+                            "secs": 60,
+                            "nanos": 0
                         },
-                        \"evicted_threshold\": 10
+                        "evicted_threshold": 10
                     }
                 }
             }
         },
-        \"out_stream\": {
-            \"url\": \"pub+bind:ipc:///etc/media-gateway/server\",
-            \"send_timeout\": {
-                \"secs\": 1,
-                \"nanos\": 0
+        "out_stream": {
+            "url": "pub+bind:ipc:///tmp/server",
+            "send_timeout": {
+                "secs": 1,
+                "nanos": 0
             },
-            \"send_retries\": 3,
-            \"receive_timeout\": {
-                \"secs\": 1,
-                \"nanos\": 0
+            "send_retries": 3,
+            "receive_timeout": {
+                "secs": 1,
+                "nanos": 0
             },
-            \"receive_retries\": 3,
-            \"send_hwm\": 1000,
-            \"receive_hwm\": 1000,
-            \"fix_ipc_permissions\": 511
+            "receive_retries": 3,
+            "send_hwm": 1000,
+            "receive_hwm": 1000,
+            "fix_ipc_permissions": 511
         }
     }
-    " > media-gateway-server.json
+    EOF
 
-Launching Media Gateway server
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Environment variables below declare and create the data directory and the port on the host for Media Gateway server.
-
-.. code-block:: bash
-
-    MEDIA_GATEWAY_PORT=8080
-    MEDIA_GATEWAY_DATA_DIR=media-gateway
-    mkdir $MEDIA_GATEWAY_DATA_DIR
-
-To start Media Gateway server with the prepared configuration
+Launch the server (change the value of `MEDIA_GATEWAY_PORT` in the command below if required)
 
 .. code-block:: bash
     :caption: x86_64
 
+    export MEDIA_GATEWAY_PORT=8080
+
     docker run -d \
         -v $(pwd)/media-gateway-server.json:/opt/etc/custom_config.json \
-        -v $(pwd)/$MEDIA_GATEWAY_DATA_DIR:/etc/media-gateway \
         -v $(pwd)/certs:/etc/certs \
         -p $MEDIA_GATEWAY_PORT:8080 \
         --name media-gateway-server \
@@ -332,35 +392,31 @@ To start Media Gateway server with the prepared configuration
 .. code-block:: bash
     :caption: ARM64
 
+    export MEDIA_GATEWAY_PORT=8080
+
     docker run -d \
         -v $(pwd)/media-gateway-server.json:/opt/etc/custom_config.json \
-        -v $(pwd)/$MEDIA_GATEWAY_DATA_DIR:/etc/media-gateway \
         -v $(pwd)/certs:/etc/certs \
         -p $MEDIA_GATEWAY_PORT:8080 \
         --name media-gateway-server \
         ghcr.io/insight-platform/media-gateway-server-arm64:latest \
         /opt/etc/custom_config.json
 
-Testing HTTP Basic authentication
----------------------------------
-
-For simplicity an invalid request is used for testing.
-
-Send a valid user name and password.
+For simplicity an invalid request is used for testing. Send a request with a valid user name and password.
 
 .. code-block:: bash
 
     curl -v -u user1:password1 http://$HOST_IP:$MEDIA_GATEWAY_PORT/ -X POST
 
-``400 Bad Request`` response should be returned. It means that authentication is successful.
+HTTP response with ``400 Bad Request`` status code should be returned. It means that authentication is successful.
 
-Send an invalid user name and password.
+Send a request with an invalid user name and password.
 
 .. code-block:: bash
 
     curl -v -u user1:password http://$HOST_IP:$MEDIA_GATEWAY_PORT/ -X POST
 
-``401 Unauthorized`` response should be returned. It means that authentication fails.
+HTTP response with ``401 Unauthorized`` status code should be returned. It means that authentication fails.
 
 Add a new user `user2` with a password `password2` and send a request using it to test that new users are loaded.
 
@@ -373,7 +429,6 @@ Add a new user `user2` with a password `password2` and send a request using it t
         --cacert /etc/certs/ca.crt \
         --cert /etc/certs/client.crt \
         --key /etc/certs/client.key  \
-        --user=root:$ETCD_ROOT_PASSWORD \
         --endpoints https://$HOST_IP:$ETCD_PORT \
         put \
         /users/user2 \
@@ -392,7 +447,6 @@ Change the password for the user `user2` to `password` and send a request using 
         --cacert /etc/certs/ca.crt \
         --cert /etc/certs/client.crt \
         --key /etc/certs/client.key \
-        --user=root:$ETCD_ROOT_PASSWORD \
         --endpoints https://$HOST_IP:$ETCD_PORT \
         put \
         /users/user2 \
@@ -402,10 +456,7 @@ Change the password for the user `user2` to `password` and send a request using 
 
     curl -v -u user2:password http://$HOST_IP:$MEDIA_GATEWAY_PORT/ -X POST
 
-Cleaning up
------------
-
-Stop and remove Docker containers
+Clean up after testing
 
 .. code-block:: bash
 
@@ -413,8 +464,22 @@ Stop and remove Docker containers
 
     docker rm media-gateway-server etcd
 
-Remove certificates, a configuration file and the data directory
+    rm -rf certs media-gateway-server.json
+
+e2e
+^^^
+
+To test both server and client based on :doc:`3_usage_example`
+
+* update ``server_config.json`` and ``client_config.json`` in the downloaded archive as described above
+* add volumes for ``media-gateway-server`` (key and certificate files) in ``docker-compose-x86.yaml`` and ``docker-compose-arm64.yaml``  in the downloaded archive
+
+Clean up after testing
 
 .. code-block:: bash
 
-    rm -rf certs media-gateway-server.json $MEDIA_GATEWAY_DATA_DIR
+    docker stop etcd
+
+    docker rm etcd
+
+    rm -rf certs

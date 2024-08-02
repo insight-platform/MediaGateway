@@ -28,7 +28,7 @@ mockall = "0.12"
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["Ivan Kudriavtsev <ivan.a.kudryavtsev@gmail.com>", "Ksenia Vazhdaeva <vazhdaeva_ks@bw-sw.com"]
+authors = ["Ivan Kudriavtsev <ivan.a.kudryavtsev@gmail.com>", "Ksenia Vazhdaeva <vazhdaeva_ks@bw-sw.com>"]
 description = "Media Gateway (client and server)"
 homepage = "https://github.com/insight-platform/MediaGateway"
 repository = "https://github.com/insight-platform/MediaGateway"
