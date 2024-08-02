@@ -173,21 +173,29 @@ fn main() -> Result<()> {
         builder.set_private_key_file(ssl_conf.identity.key, SslFiletype::PEM)?;
         builder.set_certificate_chain_file(ssl_conf.identity.certificate)?;
 
-        builder = if let Some(peer_lookup_hash_directory) = &ssl_conf.peer_lookup_hash_directory {
+        builder = if let Some(peer_tls_conf) = &ssl_conf.peers {
             let mut cert_store_builder = X509StoreBuilder::new().unwrap();
 
             let lookup_method = X509Lookup::hash_dir();
             let lookup = cert_store_builder.add_lookup(lookup_method).unwrap();
             lookup
-                .add_dir(peer_lookup_hash_directory.as_str(), SslFiletype::PEM)
+                .add_dir(
+                    peer_tls_conf.lookup_hash_directory.as_str(),
+                    SslFiletype::PEM,
+                )
                 .unwrap();
 
-            cert_store_builder
-                .set_flags(X509VerifyFlags::from_iter(vec![
-                    X509VerifyFlags::CRL_CHECK,
-                    X509VerifyFlags::CRL_CHECK_ALL,
-                ]))
-                .unwrap();
+            let cert_store_builder = if peer_tls_conf.crl_enabled {
+                cert_store_builder
+                    .set_flags(X509VerifyFlags::from_iter(vec![
+                        X509VerifyFlags::CRL_CHECK,
+                        X509VerifyFlags::CRL_CHECK_ALL,
+                    ]))
+                    .unwrap();
+                cert_store_builder
+            } else {
+                cert_store_builder
+            };
 
             builder
                 .set_verify_cert_store(cert_store_builder.build())

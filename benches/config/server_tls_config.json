@@ -6,7 +6,10 @@
       "certificate": "/etc/certs/server.crt",
       "key": "/etc/certs/server.key"
     },
-    "peer_lookup_hash_directory": "/etc/certs/lookup-hash-dir"
+    "peers": {
+      "lookup_hash_directory": "/etc/certs/lookup-hash-dir",
+      "crl_enabled": true
+    }
   },
   "out_stream": {
     "url": "pub+bind:ipc:///tmp/server",

@@ -120,7 +120,10 @@ To enable client certificate authentication in Media Gateway update both server 
 
     "tls": {
         // see HTTPS section
-        "peer_lookup_hash_directory" : "/opt/etc/certs/lookup-hash-dir"
+        "peers": {
+            "lookup_hash_directory" : "/opt/etc/certs/lookup-hash-dir",
+            "crl_enabled": true
+        }
     }
 
 .. code-block:: json
