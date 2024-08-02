@@ -2,7 +2,7 @@
   "ip": "0.0.0.0",
   "port": 8080,
   "ssl": {
-    "server": {
+    "identity": {
       "certificate": "server-cert.pem",
       "certificate_key": "server-key.pem"
     },

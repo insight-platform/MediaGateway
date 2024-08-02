@@ -32,8 +32,9 @@ Features
    :maxdepth: 1
    :caption: Cookbook
 
-   cookbook/0_tls
-   cookbook/1_usage_example
+   cookbook/0_usage_example
+   cookbook/1_tls
+   cookbook/2_basic_auth
 
 .. toctree::
    :maxdepth: 1

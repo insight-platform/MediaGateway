@@ -92,8 +92,8 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
         let mut client_builder = Client::builder().tls_built_in_root_certs(true);
 
         client_builder = if let Some(ssl_conf) = &configuration.ssl {
-            client_builder = if let Some(server_ssl_conf) = &ssl_conf.server {
-                let buf = fs::read(&server_ssl_conf.certificate)?;
+            client_builder = if let Some(certificate) = &ssl_conf.server_certificate {
+                let buf = fs::read(certificate)?;
                 let cert = Certificate::from_pem(&buf)?;
 
                 client_builder.add_root_certificate(cert)
@@ -101,9 +101,9 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
                 client_builder
             };
 
-            if let Some(client_ssl_conf) = &ssl_conf.client {
-                let cert = fs::read(&client_ssl_conf.certificate)?;
-                let key = fs::read(&client_ssl_conf.certificate_key)?;
+            if let Some(identity) = &ssl_conf.identity {
+                let cert = fs::read(&identity.certificate)?;
+                let key = fs::read(&identity.certificate_key)?;
                 let identity = Identity::from_pkcs8_pem(&cert, &key)?;
 
                 client_builder.identity(identity)
@@ -118,7 +118,8 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
             let mut headers = HeaderMap::new();
 
             let mut auth_value = HeaderValue::from_str(
-                &Credentials::new(&auth_conf.basic.id, &auth_conf.basic.password).as_http_header(),
+                &Credentials::new(&auth_conf.basic.username, &auth_conf.basic.password)
+                    .as_http_header(),
             )?;
             auth_value.set_sensitive(true);
             headers.insert(AUTHORIZATION, auth_value);

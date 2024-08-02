@@ -3,10 +3,8 @@
   "port": 8081,
   "url": "https://localhost:8080",
   "ssl": {
-    "server": {
-      "certificate": "rootCA.pem"
-    },
-    "client": {
+    "server_certificate": "rootCA.pem",
+    "identity": {
       "certificate": "client-cert.pem",
       "certificate_key": "client-key.pem"
     }

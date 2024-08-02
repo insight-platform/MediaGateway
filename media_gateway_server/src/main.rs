@@ -47,8 +47,9 @@
 //! See [configuration files](https://github.com/insight-platform/MediaGateway/blob/main/configuration/samples/server).
 //! `out_stream` fields represents configuration for
 //! [`WriterConfigBuilder`](savant_core::transport::zeromq::WriterConfigBuilder).
-use std::collections::HashMap;
 use std::env::args;
+use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use actix_web::middleware::Condition;
 use actix_web::web::scope;
@@ -59,21 +60,35 @@ use log::info;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod, SslVerifyMode};
 use openssl::x509::store::{X509Lookup, X509StoreBuilder};
 use openssl::x509::verify::X509VerifyFlags;
+use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
 use media_gateway_common::api::health;
+use media_gateway_common::configuration::Credentials;
 use media_gateway_common::health::HealthService;
 use server::configuration::GatewayConfiguration;
 
 use crate::server::api::gateway;
-use crate::server::security::basic_auth_validator;
+use crate::server::security::{basic_auth_validator, BasicAuthCheckResult};
+use crate::server::service::cache::{
+    Cache, CacheUsageFactory, CacheUsageTracker, NoOpCacheUsageTracker,
+};
+use crate::server::service::crypto::argon2::Argon2PasswordService;
+use crate::server::service::crypto::PasswordService;
 use crate::server::service::gateway::GatewayService;
-use crate::server::service::user::UserService;
+use crate::server::service::user::{UserData, UserService};
+use crate::server::storage::etcd::EtcdStorage;
+use crate::server::storage::{EmptyStorage, Storage};
 
 mod server;
 
-#[actix_web::main]
-async fn main() -> Result<()> {
+type AuthAppData = (
+    Box<dyn Storage<UserData> + Sync + Send>,
+    NonZeroUsize,
+    Arc<Box<dyn CacheUsageTracker + Sync + Send>>,
+);
+
+fn main() -> Result<()> {
     println!("--------------------------------------------------------");
     println!("             In-Sight Media Gateway Server              ");
     println!("GitHub: https://github.com/insight-platform/MediaGateway");
@@ -81,6 +96,8 @@ async fn main() -> Result<()> {
     println!("      For more information, see the LICENSE file        ");
     println!("           (c) 2024 BwSoft Management, LLC              ");
     println!("--------------------------------------------------------");
+
+    let runtime = Runtime::new().unwrap();
 
     env_logger::init();
     let conf_arg = args()
@@ -93,23 +110,51 @@ async fn main() -> Result<()> {
     let gateway_service = web::Data::new(Mutex::new(GatewayService::try_from(&conf)?));
     let health_service = web::Data::new(HealthService::new());
     let auth_enabled = conf.auth.is_some();
-    let users = if let Some(auth_conf) = conf.auth {
-        HashMap::from_iter(
-            auth_conf
-                .basic
-                .iter()
-                .map(|e| (e.id.clone(), e.password.clone())),
+    let (storage, cache_size, cache_usage_tracker): AuthAppData = if let Some(auth_conf) = conf.auth
+    {
+        let auth_cache_usage_tracker = CacheUsageFactory::from(
+            auth_conf.basic.cache.usage.as_ref(),
+            "auth".to_string(),
+            &runtime,
+        );
+        let storage_cache_usage_tracker = CacheUsageFactory::from(
+            auth_conf.basic.etcd.cache.usage.as_ref(),
+            "user".to_string(),
+            &runtime,
+        );
+        (
+            Box::new(
+                EtcdStorage::try_from((
+                    &auth_conf.basic.etcd,
+                    &runtime,
+                    storage_cache_usage_tracker.clone(),
+                ))
+                .unwrap(),
+            ),
+            auth_conf.basic.cache.size,
+            auth_cache_usage_tracker,
         )
     } else {
-        HashMap::new()
+        (
+            Box::new(EmptyStorage {}),
+            NonZeroUsize::new(1).unwrap(),
+            Arc::new(Box::new(NoOpCacheUsageTracker {})),
+        )
     };
-    let user_service = web::Data::new(UserService::new(users));
+    let basic_auth_cache: web::Data<Cache<Credentials, BasicAuthCheckResult>> =
+        web::Data::new(Cache::new(cache_size, cache_usage_tracker));
+    let password_service: web::Data<Box<dyn PasswordService + Sync + Send>> =
+        web::Data::new(Box::new(Argon2PasswordService {}));
+    let user_service = web::Data::new(UserService::new(storage));
+
     let mut http_server = HttpServer::new(move || {
         App::new()
             .service(
                 scope("/")
                     .app_data(gateway_service.clone())
                     .app_data(user_service.clone())
+                    .app_data(password_service.clone())
+                    .app_data(basic_auth_cache.clone())
                     .route("", web::post().to(gateway))
                     .wrap(Condition::new(
                         auth_enabled,
@@ -125,8 +170,8 @@ async fn main() -> Result<()> {
 
     http_server = if let Some(ssl_conf) = conf.ssl {
         let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
-        builder.set_private_key_file(ssl_conf.server.certificate_key, SslFiletype::PEM)?;
-        builder.set_certificate_chain_file(ssl_conf.server.certificate)?;
+        builder.set_private_key_file(ssl_conf.identity.certificate_key, SslFiletype::PEM)?;
+        builder.set_certificate_chain_file(ssl_conf.identity.certificate)?;
 
         builder = if let Some(client_ssl_conf) = &ssl_conf.client {
             let mut cert_store_builder = X509StoreBuilder::new().unwrap();
@@ -161,5 +206,5 @@ async fn main() -> Result<()> {
         http_server.bind(bind_address).unwrap()
     };
 
-    http_server.run().await.map_err(anyhow::Error::from)
+    runtime.block_on(async { http_server.run().await.map_err(anyhow::Error::from) })
 }

@@ -1,10 +1,13 @@
+use std::num::NonZeroUsize;
 use std::time::Duration;
 
 use savant_core::transport::zeromq::{SyncWriter, WriterConfigBuilder};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
 
-use media_gateway_common::configuration::{BasicUser, StatisticsConfiguration};
+use media_gateway_common::configuration::{
+    ClientTlsConfiguration, Credentials, Identity, StatisticsConfiguration,
+};
 
 #[config]
 #[derive(Debug, Serialize)]
@@ -26,14 +29,8 @@ impl GatewayConfiguration {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SslConfiguration {
-    pub server: ServerSslConfiguration,
+    pub identity: Identity,
     pub client: Option<ClientSslConfiguration>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ServerSslConfiguration {
-    pub certificate: String,
-    pub certificate_key: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -43,7 +40,45 @@ pub struct ClientSslConfiguration {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthConfiguration {
-    pub(crate) basic: Vec<BasicUser>,
+    pub(crate) basic: BasicAuthConfiguration,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BasicAuthConfiguration {
+    pub etcd: EtcdConfiguration,
+    pub cache: CacheConfiguration,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CacheConfiguration {
+    pub size: NonZeroUsize,
+    pub usage: Option<CacheUsage>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CacheUsage {
+    pub period: Duration,
+    pub evicted_threshold: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EtcdConfiguration {
+    pub urls: Vec<String>,
+    pub tls: Option<ClientTlsConfiguration>,
+    pub credentials: Option<Credentials>,
+    pub path: String,
+    pub data_format: EtcdDataFormat,
+    pub lease_timeout: Duration,
+    pub connect_timeout: Duration,
+    pub cache: CacheConfiguration,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum EtcdDataFormat {
+    #[serde(rename = "json")]
+    Json,
+    #[serde(rename = "yaml")]
+    Yaml,
 }
 
 impl TryFrom<&SinkConfiguration> for SyncWriter {

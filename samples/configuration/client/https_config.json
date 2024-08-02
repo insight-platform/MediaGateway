@@ -3,9 +3,7 @@
   "port": 8081,
   "url": "https://localhost:8080",
   "ssl": {
-    "server": {
-      "certificate": "rootCA.pem"
-    }
+    "server_certificate": "rootCA.pem"
   },
   "in_stream": {
     "url": "sub+bind:ipc:///tmp/client",
