@@ -91,8 +91,8 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
     fn try_from(configuration: &GatewayClientConfiguration) -> Result<Self, Self::Error> {
         let mut client_builder = Client::builder().tls_built_in_root_certs(true);
 
-        client_builder = if let Some(ssl_conf) = &configuration.ssl {
-            client_builder = if let Some(certificate) = &ssl_conf.server_certificate {
+        client_builder = if let Some(ssl_conf) = &configuration.tls {
+            client_builder = if let Some(certificate) = &ssl_conf.root_certificate {
                 let buf = fs::read(certificate)?;
                 let cert = Certificate::from_pem(&buf)?;
 
@@ -103,7 +103,7 @@ impl TryFrom<&GatewayClientConfiguration> for GatewayClient {
 
             if let Some(identity) = &ssl_conf.identity {
                 let cert = fs::read(&identity.certificate)?;
-                let key = fs::read(&identity.certificate_key)?;
+                let key = fs::read(&identity.key)?;
                 let identity = Identity::from_pkcs8_pem(&cert, &key)?;
 
                 client_builder.identity(identity)

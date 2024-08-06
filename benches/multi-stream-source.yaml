@@ -12,7 +12,7 @@ services:
       - 8080:8080
     volumes:
       - /tmp:/tmp
-      - ./config/server_ssl_config.json:/opt/etc/config.json
+      - ./config/server_tls_config.json:/opt/etc/config.json
       - ./ca/certs/server.crt:/etc/certs/server.crt
       - ./ca/certs/server.key:/etc/certs/server.key
       - ./ca/lookup-hash-dir:/etc/certs/lookup-hash-dir
@@ -29,7 +29,7 @@ services:
       - media-gateway-server
     volumes:
       - /tmp:/tmp
-      - ./config/client_ssl_config.json:/opt/etc/config.json
+      - ./config/client_tls_config.json:/opt/etc/config.json
       - ./ca/ca.crt:/etc/certs/ca.crt
       - ./ca/certs/client.crt:/etc/certs/client.crt
       - ./ca/certs/client.key:/etc/certs/client.key

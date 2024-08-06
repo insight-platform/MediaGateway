@@ -40,7 +40,7 @@ To generate certificates signed by a private CA
     openssl genpkey -algorithm RSA -out certs/server.key
 
     # Generate server CSR with SAN
-    openssl req -new -key certs/server.key -out certs/server.csr -subj "/CN=localhost"
+    openssl req -new -key certs/server.key -out certs/server.csr -subj "/CN=etcd-server"
 
     # Generate server certificate signed by the CA with IP address subject alternative name
     openssl x509 -req -days 365 -in certs/server.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/server.crt -extfile <(echo "subjectAltName=IP:127.0.0.1,IP:${HOST_IP}")
@@ -49,7 +49,7 @@ To generate certificates signed by a private CA
     openssl genpkey -algorithm RSA -out certs/client.key
 
     # Generate client CSR with SAN
-    openssl req -new -key certs/client.key -out certs/client.csr -subj "/CN=localhost"
+    openssl req -new -key certs/client.key -out certs/client.csr -subj "/CN=etcd-client"
 
     # Generate client certificate signed by the CA
     openssl x509 -req -days 365 -in certs/client.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/client.crt
@@ -75,14 +75,14 @@ To start etcd
 
     docker run -d \
         -p $ETCD_PORT:2379 \
-        -e ETCD_TRUSTED_CA_FILE=/etc/etcd-ssl/ca.crt \
-        -e ETCD_CERT_FILE=/etc/etcd-ssl/server.crt \
-        -e ETCD_KEY_FILE=/etc/etcd-ssl/server.key \
+        -e ETCD_TRUSTED_CA_FILE=/etc/certs/ca.crt \
+        -e ETCD_CERT_FILE=/etc/certs/server.crt \
+        -e ETCD_KEY_FILE=/etc/certs/server.key \
         -e ETCD_LISTEN_CLIENT_URLS=https://0.0.0.0:2379 \
         -e ETCD_ADVERTISE_CLIENT_URLS=https://0.0.0.0:$ETCD_PORT \
         -e ETCD_CLIENT_CERT_AUTH=true \
         -e ETCD_ROOT_PASSWORD=$ETCD_ROOT_PASSWORD \
-        -v $(pwd)/certs:/etc/etcd-ssl \
+        -v $(pwd)/certs:/etc/certs \
         --name etcd \
         $ETCD_IMAGE
 
@@ -210,12 +210,12 @@ To store data with a password `password1` for a user with the name `user1` in et
 .. code-block:: bash
 
     docker run -it --rm \
-        -v $(pwd)/certs:/etc/etcd-ssl \
+        -v $(pwd)/certs:/etc/certs \
         $ETCD_IMAGE \
         etcdctl \
-        --cacert /etc/etcd-ssl/ca.crt \
-        --cert /etc/etcd-ssl/client.crt \
-        --key /etc/etcd-ssl/client.key \
+        --cacert /etc/certs/ca.crt \
+        --cert /etc/certs/client.crt \
+        --key /etc/certs/client.key \
         --user=root:$ETCD_ROOT_PASSWORD \
         --endpoints https://$HOST_IP:$ETCD_PORT \
         put \
@@ -246,10 +246,10 @@ The configuration below does not contain TLS settings for simplicity. For produc
                         \"password\": \"etcd-password\"
                     },
                     \"tls\": {
-                        \"server_certificate\": \"/etc/etcd-ssl/ca.crt\",
+                        \"root_certificate\": \"/etc/certs/ca.crt\",
                         \"identity\": {
-                            \"certificate\": \"/etc/etcd-ssl/client.crt\",
-                            \"certificate_key\": \"/etc/etcd-ssl/client.key\"
+                            \"certificate\": \"/etc/certs/client.crt\",
+                            \"key\": \"/etc/certs/client.key\"
                         }
                     },
                     \"path\": \"/users\",
@@ -323,7 +323,7 @@ To start Media Gateway server with the prepared configuration
     docker run -d \
         -v $(pwd)/media-gateway-server.json:/opt/etc/custom_config.json \
         -v $(pwd)/$MEDIA_GATEWAY_DATA_DIR:/etc/media-gateway \
-        -v $(pwd)/certs:/etc/etcd-ssl \
+        -v $(pwd)/certs:/etc/certs \
         -p $MEDIA_GATEWAY_PORT:8080 \
         --name media-gateway-server \
         ghcr.io/insight-platform/media-gateway-server-x86:latest \
@@ -335,7 +335,7 @@ To start Media Gateway server with the prepared configuration
     docker run -d \
         -v $(pwd)/media-gateway-server.json:/opt/etc/custom_config.json \
         -v $(pwd)/$MEDIA_GATEWAY_DATA_DIR:/etc/media-gateway \
-        -v $(pwd)/certs:/etc/etcd-ssl \
+        -v $(pwd)/certs:/etc/certs \
         -p $MEDIA_GATEWAY_PORT:8080 \
         --name media-gateway-server \
         ghcr.io/insight-platform/media-gateway-server-arm64:latest \
@@ -367,12 +367,12 @@ Add a new user `user2` with a password `password2` and send a request using it t
 .. code-block:: bash
 
     docker run -it --rm \
-        -v $(pwd)/certs:/etc/etcd-ssl \
+        -v $(pwd)/certs:/etc/certs \
         $ETCD_IMAGE \
         etcdctl \
-        --cacert /etc/etcd-ssl/ca.crt \
-        --cert /etc/etcd-ssl/client.crt \
-        --key /etc/etcd-ssl/client.key  \
+        --cacert /etc/certs/ca.crt \
+        --cert /etc/certs/client.crt \
+        --key /etc/certs/client.key  \
         --user=root:$ETCD_ROOT_PASSWORD \
         --endpoints https://$HOST_IP:$ETCD_PORT \
         put \
@@ -386,12 +386,12 @@ Change the password for the user `user2` to `password` and send a request using 
 .. code-block:: bash
 
     docker run -it --rm \
-        -v $(pwd)/certs:/etc/etcd-ssl \
+        -v $(pwd)/certs:/etc/certs \
         $ETCD_IMAGE \
         etcdctl \
-        --cacert /etc/etcd-ssl/ca.crt \
-        --cert /etc/etcd-ssl/client.crt \
-        --key /etc/etcd-ssl/client.key \
+        --cacert /etc/certs/ca.crt \
+        --cert /etc/certs/client.crt \
+        --key /etc/certs/client.key \
         --user=root:$ETCD_ROOT_PASSWORD \
         --endpoints https://$HOST_IP:$ETCD_PORT \
         put \
@@ -417,4 +417,4 @@ Remove certificates, a configuration file and the data directory
 
 .. code-block:: bash
 
-    sudo rm -rf certs media-gateway-server.json $MEDIA_GATEWAY_DATA_DIR
+    rm -rf certs media-gateway-server.json $MEDIA_GATEWAY_DATA_DIR

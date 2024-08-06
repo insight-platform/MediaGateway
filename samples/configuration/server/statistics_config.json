@@ -19,7 +19,10 @@
   },
   "statistics": {
     "frame_period": 1000,
-    "timestamp_period": 1000,
+    "timestamp_period": {
+      "secs": 1,
+      "nanos": 0
+    },
     "history_size": 1000
   }
 }

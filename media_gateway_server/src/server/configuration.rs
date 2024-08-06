@@ -14,7 +14,7 @@ use media_gateway_common::configuration::{
 pub struct GatewayConfiguration {
     pub(crate) ip: String,
     pub(crate) port: u16,
-    pub(crate) ssl: Option<SslConfiguration>,
+    pub(crate) tls: Option<ServerTlsConfiguration>,
     pub(crate) out_stream: SinkConfiguration,
     pub(crate) auth: Option<AuthConfiguration>,
     pub(crate) statistics: Option<StatisticsConfiguration>,
@@ -28,14 +28,9 @@ impl GatewayConfiguration {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SslConfiguration {
+pub struct ServerTlsConfiguration {
     pub identity: Identity,
-    pub client: Option<ClientSslConfiguration>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ClientSslConfiguration {
-    pub certificate_directory: String,
+    pub peer_lookup_hash_directory: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

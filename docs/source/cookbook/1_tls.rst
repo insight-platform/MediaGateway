@@ -25,20 +25,18 @@ Self-signed server certificates
 .. code-block:: json
     :caption: server
 
-    "ssl": {
-        "server": {
+    "tls": {
+        "identity": {
             "certificate": "server.crt",
-            "certificate_key": "server.key"
+            "key": "server.key"
         }
     }
 
 .. code-block:: json
     :caption: client
 
-    "ssl": {
-        "server": {
-            "certificate": "server.crt"
-        }
+    "tls": {
+        "root_certificate": "server.crt"
     }
 
 Signed by a private CA server certificates
@@ -53,20 +51,18 @@ Signed by a private CA server certificates
 .. code-block:: json
     :caption: server
 
-    "ssl": {
-        "server": {
+    "tls": {
+        "identity": {
             "certificate": "server.crt",
-            "certificate_key": "server.key"
+            "key": "server.key"
         }
     }
 
 .. code-block:: json
     :caption: client
 
-    "ssl": {
-        "server": {
-            "certificate": "ca.crt"
-        }
+    "tls": {
+        "root_certificate": "ca.crt"
     }
 
 Signed by a public CA server certificates
@@ -79,10 +75,10 @@ Signed by a public CA server certificates
 .. code-block:: json
     :caption: server
 
-    "ssl": {
-        "server": {
+    "tls": {
+        "identity": {
             "certificate": "server.crt",
-            "certificate_key": "server.key"
+            "key": "server.key"
         }
     }
 
@@ -97,7 +93,7 @@ The server uses a store with trusted X509 certificates to verify peer certificat
 
 ``ca.crl`` is a file with CRL in PEM format.
 
-``/opt/etc/store`` is a directory with CA certificates and CRLs.
+``/opt/etc/certs/lookup-hash-dir`` is a directory with CA certificates and CRLs.
 
 To add a new certificate and corresponding CRL
 
@@ -105,15 +101,15 @@ To add a new certificate and corresponding CRL
 
     CA_HASH=$(openssl x509 -in ca.crt -subject_hash -noout)
 
-    cp ca.crt "/opt/etc/store/$CA_HASH.0"
+    cp ca.crt "/opt/etc/certs/lookup-hash-dir/$CA_HASH.0"
 
     CRL_HASH=$(openssl crl -in ca.crl -hash -noout)
 
-    cp ca.crl "/opt/etc/store/$CRL_HASH.r0"
+    cp ca.crl "/opt/etc/certs/lookup-hash-dir/$CRL_HASH.r0"
 
 To enable client certificate authentication in Media Gateway update both server and client configuration.
 
-``/opt/etc/store`` is a directory with CA certificates and CRLs.
+``/opt/etc/certs/lookup-hash-dir`` is a directory with CA certificates and CRLs.
 
 ``client.crt`` is a file with a client certificate in PEM format.
 
@@ -122,25 +118,19 @@ To enable client certificate authentication in Media Gateway update both server 
 .. code-block:: json
     :caption: server
 
-    "ssl": {
-        "server": {
-            // see HTTPS section
-        },
-        "client": {
-            "certificate_directory": "/opt/etc/store"
-        }
+    "tls": {
+        // see HTTPS section
+        "peer_lookup_hash_directory" : "/opt/etc/certs/lookup-hash-dir"
     }
 
 .. code-block:: json
     :caption: client
 
-    "ssl": {
-        "server": {
-            // see HTTPS section
-        },
-        "client": {
+    "tls": {
+        // see HTTPS section
+        "identity": {
             "certificate": "client.crt",
-            "certificate_key": "client.key"
+            "key": "client.key"
         }
     }
 
@@ -284,9 +274,9 @@ To generate a server certificate signed by CA with a simple subject name and DNS
 
 .. code-block:: bash
 
-    openssl genpkey -algorithm RSA -out server.key
+    openssl genpkey -algorithm RSA -out certs/server.key
 
-    openssl req -new -key server.key -out server.csr -subj "/CN=server.example.com"
+    openssl req -new -key certs/server.key -out certs/server.csr -subj "/CN=server.example.com"
 
     openssl ca -config ca.conf -in certs/server.csr -out certs/server.crt -extfile <(echo 'basicConstraints=CA:FALSE
     nsComment="OpenSSL Generated Certificate"
@@ -329,17 +319,17 @@ To prepare certificates signed by the CA for `X509_LOOKUP_hash_dir method <https
 
 .. code-block:: bash
 
-    mkdir certs/client
+    mkdir lookup-hash-dir
 
     CA_HASH=$(openssl x509 -in ca.crt -subject_hash -noout)
 
-    cp ca.crt "certs/client/$CA_HASH.0"
+    cp ca.crt "lookup-hash-dir/$CA_HASH.0"
 
     openssl ca -config ca.conf -gencrl -out crl/ca.crl
 
     CRL_HASH=$(openssl crl -in crl/ca.crl -hash -noout)
 
-    cp crl/ca.crl "certs/client/$CRL_HASH.r0"
+    cp crl/ca.crl "lookup-hash-dir/$CRL_HASH.r0"
 
 A filename has the form ``hash.N`` for a certificate and the form ``hash.rN`` for a CRL where N is a sequence number that starts at zero, and is incremented consecutively for each certificate or CRL with the same hash value.
 
@@ -356,6 +346,6 @@ To revoke a client certificate signed by the CA
 
     CRL_HASH=$(openssl crl -in crl/ca.crl -hash -noout)
 
-    cp crl/ca.crl "certs/client/$CRL_HASH.r1"
+    cp crl/ca.crl "lookup-hash-dir/$CRL_HASH.r1"
 
 ⚠️ The sequence number N in the filename of the form ``hash.rN`` must be increased each time.

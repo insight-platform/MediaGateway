@@ -1,12 +1,12 @@
 {
   "ip": "0.0.0.0",
   "port": 8081,
-  "url": "https://localhost:8080",
-  "ssl": {
-    "server_certificate": "rootCA.pem",
+  "url": "https://media-gateway-server:8080",
+  "tls": {
+    "root_certificate": "ca.crt",
     "identity": {
-      "certificate": "client-cert.pem",
-      "certificate_key": "client-key.pem"
+      "certificate": "client.crt",
+      "key": "client.key"
     }
   },
   "in_stream": {

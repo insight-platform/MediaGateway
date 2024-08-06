@@ -37,8 +37,8 @@ pub struct GatewayClientConfiguration {
     pub in_stream: SourceConfiguration,
     /// A strategy how to wait for data while reading
     pub wait_strategy: Option<WaitStrategy>,
-    /// SSL settings
-    pub ssl: Option<ClientTlsConfiguration>,
+    /// TLS settings
+    pub tls: Option<ClientTlsConfiguration>,
     /// Authentication settings
     pub auth: Option<AuthConfiguration>,
     /// Statistics settings

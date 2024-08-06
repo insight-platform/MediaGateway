@@ -69,7 +69,7 @@ impl
             None => None,
             Some(tls_conf) => {
                 let mut tls = TlsOptions::default();
-                tls = match &tls_conf.server_certificate {
+                tls = match &tls_conf.root_certificate {
                     Some(path) => {
                         let cert = fs::read(path)?;
                         tls.ca_certificate(Certificate::from_pem(cert))
@@ -79,7 +79,7 @@ impl
                 tls = match &tls_conf.identity {
                     Some(identity) => {
                         let cert = fs::read(&identity.certificate)?;
-                        let key = fs::read(&identity.certificate_key)?;
+                        let key = fs::read(&identity.key)?;
                         let identity = Identity::from_pem(cert, key);
 
                         tls.identity(identity)
