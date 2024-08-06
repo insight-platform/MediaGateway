@@ -6,7 +6,10 @@
       "certificate": "server.crt",
       "key": "server.key"
     },
-    "peer_lookup_hash_directory": "lookup-hash-dir"
+    "peer": {
+      "lookup_hash_directory": "lookup-hash-dir",
+      "crl_enabled": true
+    }
   },
   "out_stream": {
     "url": "pub+bind:ipc:///tmp/server",

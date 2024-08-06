@@ -251,9 +251,15 @@ tls
     * - identity.key
       - A path to a private key for the certificate.
       - yes
-    * - peer_lookup_hash_directory
-      - A directory with certificates and CRLs to verify client certificates. See `X509_LOOKUP_hash_dir method <https://www.openssl.org/docs/man1.1.1/man3/X509_LOOKUP_hash_dir.html>`_ for more details.
+    * - peers
+      - Settings to verify peer certificates.
       - no
+    * - peers.lookup_hash_directory
+      - A directory with certificates and CRLs to verify client certificates. See `X509_LOOKUP_hash_dir method <https://www.openssl.org/docs/man1.1.1/man3/X509_LOOKUP_hash_dir.html>`_ for more details.
+      - yes
+    * - peers.crl_enabled
+      - ``true`` if CRLs must be checked during client certificate verification, ``false`` otherwise.
+      - yes
 
 statistics
 ^^^^^^^^^^

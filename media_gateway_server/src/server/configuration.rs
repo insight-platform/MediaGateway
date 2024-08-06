@@ -30,7 +30,13 @@ impl GatewayConfiguration {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServerTlsConfiguration {
     pub identity: Identity,
-    pub peer_lookup_hash_directory: Option<String>,
+    pub peers: Option<PeerTlsConfiguration>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PeerTlsConfiguration {
+    pub lookup_hash_directory: String,
+    pub crl_enabled: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
