@@ -1,7 +1,7 @@
 HTTP Basic authentication
 =========================
 
-Media Gateway can control access to the server via a username/password authentication (HTTP Basic Authentication). HTTP Basic authentication should be used with HTTPS (see :doc:`0_https`) to provide confidentiality. The only endpoint that is available to anyone is :ref:`a health endpoint <health endpoint>`. Usernames and passwords are taken from `etcd <https://etcd.io/>`__.
+Media Gateway can control access to the server via a username/password authentication (HTTP Basic Authentication). HTTP Basic authentication should be used with HTTPS (see :doc:`0_https`) to provide confidentiality. The only endpoint that is available to anyone is :ref:`a health endpoint <health endpoint>`. Usernames and passwords are taken from `etcd <https://etcd.io/>`__. An optional quarantine feature is available. A user is quarantined for a period if the amount of failed attempts to authenticate reaches the maximum. An error response without password checks is returned if the user is quarantined which reduces risks of attacks (e.g. password hacking, DoS).
 
 `Savant messages <https://github.com/insight-platform/savant-rs/blob/main/savant_core/src/message.rs>`__ contain routing labels. Media Gateway server can be configured to accept messages from a user only if routing labels are allowed. Allowed labels in the form of `a label filter rule <https://github.com/insight-platform/savant-rs/blob/main/savant_core/src/message/label_filter.rs>`__ are taken from `etcd`.
 
@@ -67,6 +67,13 @@ To use HTTP Basic authentication update server and client configurations. Exampl
                         "nanos": 0
                     },
                     "evicted_threshold": 10
+                }
+            },
+            "quarantine": {
+                "failed_attempt_limit": 3,
+                "period": {
+                    "secs": 60,
+                    "nanos": 0
                 }
             }
         }
@@ -352,6 +359,13 @@ To test the server only prepare a configuration file. The configuration below do
                         },
                         "evicted_threshold": 10
                     }
+                },
+                "quarantine": {
+                    "failed_attempt_limit": 3,
+                    "period": {
+                        "secs": 60,
+                        "nanos": 0
+                    }
                 }
             }
         },
@@ -417,6 +431,8 @@ Send a request with an invalid user name and password.
     curl -v -u user1:password http://$HOST_IP:$MEDIA_GATEWAY_PORT/ -X POST
 
 HTTP response with ``401 Unauthorized`` status code should be returned. It means that authentication fails.
+
+Send the last request two more times. Each time HTTP response with ``401 Unauthorized`` status code should be returned. After that send the request with the valid password. HTTP response with ``401 Unauthorized`` status code should be returned during 1 minute, after 1 minute - HTTP response with ``400 Bad Request`` status code.
 
 Add a new user `user2` with a password `password2` and send a request using it to test that new users are loaded.
 
