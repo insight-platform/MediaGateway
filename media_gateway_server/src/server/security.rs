@@ -1,13 +1,18 @@
-use crate::server::service::cache::Cache;
-use crate::server::service::crypto::PasswordService;
-use crate::server::service::user::UserService;
 use actix_web::dev::ServiceRequest;
 use actix_web::web::Data;
 use actix_web::{Error, HttpMessage};
 use actix_web_httpauth::extractors::basic::BasicAuth;
 use anyhow::anyhow;
 use log::error;
+
 use media_gateway_common::configuration::Credentials;
+
+use crate::server::security::quarantine::AuthQuarantine;
+use crate::server::service::cache::Cache;
+use crate::server::service::crypto::PasswordService;
+use crate::server::service::user::UserService;
+
+pub mod quarantine;
 
 fn to_credentials(value: &BasicAuth) -> Result<Credentials, anyhow::Error> {
     if let Some(password) = value.password() {
@@ -73,12 +78,24 @@ pub async fn basic_auth_validator(
     }
     let password_service = password_service.unwrap();
 
-    let basic_auth_cache = req.app_data::<Data<Cache<Credentials, BasicAuthCheckResult>>>();
-    if basic_auth_cache.is_none() {
-        error!("No basic auth cache");
+    let basic_auth_check_result_cache =
+        req.app_data::<Data<Cache<Credentials, BasicAuthCheckResult>>>();
+    if basic_auth_check_result_cache.is_none() {
+        error!("No basic auth check result cache");
         return Err((actix_web::error::ErrorInternalServerError(""), req));
     }
-    let basic_auth_cache = basic_auth_cache.unwrap();
+    let basic_auth_check_result_cache = basic_auth_check_result_cache.unwrap();
+
+    let basic_auth_quarantine = req.app_data::<Data<Box<dyn AuthQuarantine + Sync + Send>>>();
+    if basic_auth_quarantine.is_none() {
+        error!("No basic auth quarantine");
+        return Err((actix_web::error::ErrorInternalServerError(""), req));
+    }
+    let basic_auth_quarantine = basic_auth_quarantine.unwrap();
+
+    if basic_auth_quarantine.in_quarantine(credentials.user_id()) {
+        return Err((actix_web::error::ErrorUnauthorized(""), req));
+    }
 
     let password = credentials.password();
     if password.is_none() {
@@ -92,15 +109,20 @@ pub async fn basic_auth_validator(
             error!("Error while retrieving user data: {:?}", e);
             Err((actix_web::error::ErrorInternalServerError(""), req))
         }
-        Ok(None) => Err((actix_web::error::ErrorUnauthorized(""), req)),
+        Ok(None) => {
+            basic_auth_quarantine.register_failure(credentials.username.as_str());
+            Err((actix_web::error::ErrorUnauthorized(""), req))
+        }
         Ok(Some(user_data)) => {
-            let cache_result = basic_auth_cache.get(&credentials);
+            let cache_result = basic_auth_check_result_cache.get(&credentials);
             match cache_result {
                 Some(e) if e.password_hash == user_data.password_hash => {
                     if e.valid {
+                        basic_auth_quarantine.register_success(credentials.username.as_str());
                         req.extensions_mut().insert(user_data);
                         Ok(req)
                     } else {
+                        basic_auth_quarantine.register_failure(credentials.username.as_str());
                         Err((actix_web::error::ErrorUnauthorized(""), req))
                     }
                 }
@@ -111,14 +133,16 @@ pub async fn basic_auth_validator(
                     ) {
                         Err(e) => {
                             error!("Error while verifying a user password: {:?}", e);
-                            basic_auth_cache.push(
+                            basic_auth_quarantine.register_failure(credentials.username.as_str());
+                            basic_auth_check_result_cache.push(
                                 credentials,
                                 BasicAuthCheckResult::invalid(user_data.password_hash.clone()),
                             );
                             Err((actix_web::error::ErrorUnauthorized(""), req))
                         }
                         Ok(true) => {
-                            basic_auth_cache.push(
+                            basic_auth_quarantine.register_success(credentials.username.as_str());
+                            basic_auth_check_result_cache.push(
                                 credentials,
                                 BasicAuthCheckResult::valid(user_data.password_hash.clone()),
                             );
@@ -126,7 +150,8 @@ pub async fn basic_auth_validator(
                             Ok(req)
                         }
                         Ok(false) => {
-                            basic_auth_cache.push(
+                            basic_auth_quarantine.register_failure(credentials.username.as_str());
+                            basic_auth_check_result_cache.push(
                                 credentials,
                                 BasicAuthCheckResult::invalid(user_data.password_hash.clone()),
                             );
@@ -150,6 +175,7 @@ mod tests {
     use anyhow::anyhow;
     use mockall::predicate::eq;
 
+    use crate::server::security::quarantine::MockAuthQuarantine;
     use crate::server::service::cache::NoOpCacheUsageTracker;
     use crate::server::service::crypto::MockPasswordService;
     use crate::server::service::user::UserData;
@@ -206,11 +232,58 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn basic_auth_no_password() {
+    async fn basic_auth_no_basic_auth_quarantine() {
+        let user_service = Data::new(UserService::new(storage_to_box(MockStorage::new())));
+        let password_service = Data::new(password_service_to_box(MockPasswordService::new()));
+        let cache = new_cache();
+        let service_request = test::TestRequest::default()
+            .app_data(user_service.clone())
+            .app_data(password_service.clone())
+            .app_data(cache.clone())
+            .to_srv_request();
+
+        let result = basic_auth_validator(
+            service_request,
+            BasicAuth::from(Basic::new(ID, Some(PASSWORD))),
+        )
+        .await;
+        check_error(result, StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[actix_web::test]
+    async fn basic_auth_in_quarantine() {
+        let mut auth_quarantine = MockAuthQuarantine::new();
+        auth_quarantine
+            .expect_in_quarantine()
+            .with(eq(ID))
+            .times(1)
+            .returning(|_x| true);
+
         basic_auth_error(
             storage_to_box(MockStorage::new()),
             password_service_to_box(MockPasswordService::new()),
             new_cache(),
+            auth_quarantine_to_box(auth_quarantine),
+            BasicAuth::from(Basic::new(ID, None::<String>)),
+            StatusCode::UNAUTHORIZED,
+        )
+        .await;
+    }
+
+    #[actix_web::test]
+    async fn basic_auth_no_password() {
+        let mut auth_quarantine = MockAuthQuarantine::new();
+        auth_quarantine
+            .expect_in_quarantine()
+            .with(eq(ID))
+            .times(1)
+            .returning(|_x| false);
+
+        basic_auth_error(
+            storage_to_box(MockStorage::new()),
+            password_service_to_box(MockPasswordService::new()),
+            new_cache(),
+            auth_quarantine_to_box(auth_quarantine),
             BasicAuth::from(Basic::new(ID, None::<String>)),
             StatusCode::UNAUTHORIZED,
         )
@@ -225,11 +298,18 @@ mod tests {
             .with(eq(ID))
             .times(1)
             .returning(|_x| Err(anyhow!("error")));
+        let mut auth_quarantine = MockAuthQuarantine::new();
+        auth_quarantine
+            .expect_in_quarantine()
+            .with(eq(ID))
+            .times(1)
+            .returning(|_x| false);
 
         basic_auth_error(
             storage_to_box(storage),
             password_service_to_box(MockPasswordService::new()),
             new_cache(),
+            auth_quarantine_to_box(auth_quarantine),
             BasicAuth::from(Basic::new(ID, Some(PASSWORD))),
             StatusCode::INTERNAL_SERVER_ERROR,
         )
@@ -245,10 +325,23 @@ mod tests {
             .times(1)
             .returning(|_x| Ok(None));
 
+        let mut auth_quarantine = MockAuthQuarantine::new();
+        auth_quarantine
+            .expect_in_quarantine()
+            .with(eq(ID))
+            .times(1)
+            .returning(|_x| false);
+        auth_quarantine
+            .expect_register_failure()
+            .with(eq(ID.to_string()))
+            .times(1)
+            .returning(|_x| {});
+
         basic_auth_error(
             storage_to_box(storage),
             password_service_to_box(MockPasswordService::new()),
             new_cache(),
+            auth_quarantine_to_box(auth_quarantine),
             BasicAuth::from(Basic::new(ID, Some(PASSWORD))),
             StatusCode::UNAUTHORIZED,
         )
@@ -263,6 +356,17 @@ mod tests {
             .with(eq(ID))
             .times(1)
             .returning(|_x| Ok(None));
+        let mut auth_quarantine = MockAuthQuarantine::new();
+        auth_quarantine
+            .expect_in_quarantine()
+            .with(eq(ID))
+            .times(1)
+            .returning(|_x| false);
+        auth_quarantine
+            .expect_register_failure()
+            .with(eq(ID.to_string()))
+            .times(1)
+            .returning(|_x| {});
         let cache = new_cache();
         let basic_auth = BasicAuth::from(Basic::new(ID, Some(PASSWORD)));
         let credentials = to_credentials(&basic_auth).unwrap();
@@ -275,6 +379,7 @@ mod tests {
             storage_to_box(storage),
             password_service_to_box(MockPasswordService::new()),
             cache.clone(),
+            auth_quarantine_to_box(auth_quarantine),
             basic_auth,
             StatusCode::UNAUTHORIZED,
         )
@@ -290,6 +395,17 @@ mod tests {
                 allowed_routing_labels: None,
             }))
         });
+        let mut auth_quarantine = MockAuthQuarantine::new();
+        auth_quarantine
+            .expect_in_quarantine()
+            .with(eq(ID))
+            .times(1)
+            .returning(|_x| false);
+        auth_quarantine
+            .expect_register_failure()
+            .with(eq(ID.to_string()))
+            .times(1)
+            .returning(|_x| {});
         let mut password_service = MockPasswordService::new();
         password_service
             .expect_verify()
@@ -304,6 +420,7 @@ mod tests {
             storage_to_box(storage),
             password_service_to_box(password_service),
             cache.clone(),
+            auth_quarantine_to_box(auth_quarantine),
             basic_auth,
             StatusCode::UNAUTHORIZED,
         )
@@ -324,6 +441,17 @@ mod tests {
                 allowed_routing_labels: None,
             }))
         });
+        let mut auth_quarantine = MockAuthQuarantine::new();
+        auth_quarantine
+            .expect_in_quarantine()
+            .with(eq(ID))
+            .times(1)
+            .returning(|_x| false);
+        auth_quarantine
+            .expect_register_failure()
+            .with(eq(ID.to_string()))
+            .times(1)
+            .returning(|_x| {});
         let mut password_service = MockPasswordService::new();
         password_service
             .expect_verify()
@@ -338,6 +466,7 @@ mod tests {
             storage_to_box(storage),
             password_service_to_box(password_service),
             cache.clone(),
+            auth_quarantine_to_box(auth_quarantine),
             basic_auth,
             StatusCode::UNAUTHORIZED,
         )
@@ -358,6 +487,17 @@ mod tests {
                 allowed_routing_labels: None,
             }))
         });
+        let mut auth_quarantine = MockAuthQuarantine::new();
+        auth_quarantine
+            .expect_in_quarantine()
+            .with(eq(ID))
+            .times(1)
+            .returning(|_x| false);
+        auth_quarantine
+            .expect_register_failure()
+            .with(eq(ID.to_string()))
+            .times(1)
+            .returning(|_x| {});
         let password_service = MockPasswordService::new();
         let cache: Data<Cache<Credentials, BasicAuthCheckResult>> = new_cache();
         let basic_auth = BasicAuth::from(Basic::new(ID, Some(PASSWORD)));
@@ -371,6 +511,7 @@ mod tests {
             storage_to_box(storage),
             password_service_to_box(password_service),
             cache.clone(),
+            auth_quarantine_to_box(auth_quarantine),
             basic_auth,
             StatusCode::UNAUTHORIZED,
         )
@@ -392,6 +533,17 @@ mod tests {
                 allowed_routing_labels: None,
             }))
         });
+        let mut auth_quarantine = MockAuthQuarantine::new();
+        auth_quarantine
+            .expect_in_quarantine()
+            .with(eq(ID))
+            .times(1)
+            .returning(|_x| false);
+        auth_quarantine
+            .expect_register_failure()
+            .with(eq(ID.to_string()))
+            .times(1)
+            .returning(|_x| {});
         let mut password_service = MockPasswordService::new();
         password_service
             .expect_verify()
@@ -410,6 +562,7 @@ mod tests {
             storage_to_box(storage),
             password_service_to_box(password_service),
             cache.clone(),
+            auth_quarantine_to_box(auth_quarantine),
             basic_auth,
             StatusCode::UNAUTHORIZED,
         )
@@ -433,6 +586,17 @@ mod tests {
             .expect_get()
             .with(eq(ID))
             .return_once(|_x| Ok(storage_user_data));
+        let mut auth_quarantine = MockAuthQuarantine::new();
+        auth_quarantine
+            .expect_in_quarantine()
+            .with(eq(ID))
+            .times(1)
+            .returning(|_x| false);
+        auth_quarantine
+            .expect_register_success()
+            .with(eq(ID.to_string()))
+            .times(1)
+            .returning(|_x| {});
         let mut password_service = MockPasswordService::new();
         password_service
             .expect_verify()
@@ -447,6 +611,7 @@ mod tests {
             storage_to_box(storage),
             password_service_to_box(password_service),
             cache.clone(),
+            auth_quarantine_to_box(auth_quarantine),
             basic_auth,
         )
         .await;
@@ -475,6 +640,17 @@ mod tests {
             .expect_get()
             .with(eq(ID))
             .return_once(|_x| Ok(storage_user_data));
+        let mut auth_quarantine = MockAuthQuarantine::new();
+        auth_quarantine
+            .expect_in_quarantine()
+            .with(eq(ID))
+            .times(1)
+            .returning(|_x| false);
+        auth_quarantine
+            .expect_register_success()
+            .with(eq(ID.to_string()))
+            .times(1)
+            .returning(|_x| {});
         let password_service = MockPasswordService::new();
         let cache: Data<Cache<Credentials, BasicAuthCheckResult>> = new_cache();
         let basic_auth = BasicAuth::from(Basic::new(ID, Some(PASSWORD)));
@@ -488,6 +664,7 @@ mod tests {
             storage_to_box(storage),
             password_service_to_box(password_service),
             cache.clone(),
+            auth_quarantine_to_box(auth_quarantine),
             basic_auth,
         )
         .await;
@@ -508,10 +685,18 @@ mod tests {
         storage: Box<dyn Storage<UserData> + Send + Sync>,
         password_service: Box<dyn PasswordService + Send + Sync>,
         cache: Data<Cache<Credentials, BasicAuthCheckResult>>,
+        auth_quarantine: Box<dyn AuthQuarantine + Send + Sync>,
         basic_auth: BasicAuth,
         expected_status_code: StatusCode,
     ) {
-        let result = get_result(storage, password_service, cache, basic_auth).await;
+        let result = get_result(
+            storage,
+            password_service,
+            cache,
+            auth_quarantine,
+            basic_auth,
+        )
+        .await;
         check_error(result, expected_status_code);
     }
 
@@ -519,14 +704,17 @@ mod tests {
         storage: Box<dyn Storage<UserData> + Send + Sync>,
         password_service: Box<dyn PasswordService + Send + Sync>,
         cache: Data<Cache<Credentials, BasicAuthCheckResult>>,
+        auth_quarantine: Box<dyn AuthQuarantine + Send + Sync>,
         basic_auth: BasicAuth,
     ) -> Result<ServiceRequest, (Error, ServiceRequest)> {
         let user_service = Data::new(UserService::new(storage));
         let password_service = Data::new(password_service);
+        let auth_quarantine = Data::new(auth_quarantine);
         let service_request = test::TestRequest::default()
             .app_data(user_service.clone())
             .app_data(password_service.clone())
             .app_data(cache.clone())
+            .app_data(auth_quarantine.clone())
             .to_srv_request();
 
         basic_auth_validator(service_request, basic_auth).await
@@ -553,6 +741,12 @@ mod tests {
         password_service: MockPasswordService,
     ) -> Box<dyn PasswordService + Send + Sync> {
         Box::new(password_service)
+    }
+
+    fn auth_quarantine_to_box(
+        auth_quarantine: MockAuthQuarantine,
+    ) -> Box<dyn AuthQuarantine + Send + Sync> {
+        Box::new(auth_quarantine)
     }
 
     fn new_cache() -> Data<Cache<Credentials, BasicAuthCheckResult>> {

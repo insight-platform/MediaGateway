@@ -44,6 +44,13 @@
           },
           "evicted_threshold": 10
         }
+      },
+      "quarantine": {
+        "failed_attempt_limit": 3,
+        "period": {
+          "secs": 60,
+          "nanos": 0
+        }
       }
     }
   },

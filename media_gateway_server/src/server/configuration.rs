@@ -48,6 +48,13 @@ pub struct AuthConfiguration {
 pub struct BasicAuthConfiguration {
     pub etcd: EtcdConfiguration,
     pub cache: CacheConfiguration,
+    pub quarantine: Option<AuthQuarantineConfiguration>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthQuarantineConfiguration {
+    pub period: Duration,
+    pub failed_attempt_limit: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
