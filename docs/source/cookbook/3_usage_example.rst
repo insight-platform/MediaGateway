@@ -6,7 +6,8 @@ This example shows how to ingest `the video file <https://eu-central-1.linodeobj
 Prerequisites
 -------------
 
-`Docker <https://www.docker.com/>`__ and `Docker Compose <https://docs.docker.com/compose/>`__ are installed and `NVIDIA GPU <https://docs.docker.com/config/containers/resource_constraints/#gpu>`__ is configured.
+* Docker with configured `NVIDIA GPU <https://docs.docker.com/config/containers/resource_constraints/#gpu>`__
+* Docker Compose
 
 Launch
 ------

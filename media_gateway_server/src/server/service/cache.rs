@@ -1,6 +1,7 @@
 use std::borrow::Borrow;
 use std::hash::Hash;
 use std::num::NonZeroUsize;
+use std::ops::Add;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -51,6 +52,78 @@ impl<K: Hash + Eq + Clone, V: Clone> Cache<K, V> {
             }
         }
         result
+    }
+
+    pub fn pop<Q>(&self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        let mut cache = self.inner.lock();
+        cache.pop(key)
+    }
+}
+
+pub struct LruTtlSet<T> {
+    inner: Arc<Mutex<LruCache<T, Instant>>>,
+    ttl: Duration,
+    size: NonZeroUsize,
+    cache_usage_tracker: Arc<Box<dyn CacheUsageTracker + Sync + Send>>,
+}
+
+impl<T: Hash + Eq + Clone> LruTtlSet<T> {
+    pub fn new(
+        size: NonZeroUsize,
+        ttl: Duration,
+        cache_usage_tracker: Arc<Box<dyn CacheUsageTracker + Sync + Send>>,
+    ) -> Self {
+        LruTtlSet {
+            inner: Arc::new(Mutex::new(LruCache::new(size))),
+            ttl,
+            size,
+            cache_usage_tracker,
+        }
+    }
+
+    pub fn contains<Q>(&self, key: &Q) -> bool
+    where
+        T: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        let mut cache = self.inner.lock();
+        match cache.get(key) {
+            Some(expiration) => {
+                if *expiration <= Instant::now() {
+                    cache.pop(key);
+                    false
+                } else {
+                    true
+                }
+            }
+            None => false,
+        }
+    }
+
+    pub fn add(&self, key: T) {
+        let mut cache = self.inner.lock();
+        let now = Instant::now();
+        if cache.len() == self.size.get() {
+            let keys = cache
+                .iter()
+                .filter(|e| *e.1 <= now)
+                .map(|e| e.0.clone())
+                .collect::<Vec<T>>();
+            for key in keys {
+                cache.pop(&key);
+            }
+        }
+        let pushed_key = key.clone();
+        let result = cache.push(key, now.add(self.ttl));
+        if let Some((cached_key, _)) = result.as_ref() {
+            if cached_key != &pushed_key {
+                self.cache_usage_tracker.register_evicted();
+            }
+        }
     }
 }
 
@@ -257,14 +330,16 @@ impl CacheUsageFactory {
 mod tests {
     use std::num::NonZeroUsize;
     use std::sync::Arc;
+    use std::thread::sleep;
+    use std::time::Duration;
 
-    use crate::server::service::cache::{Cache, MockCacheUsageTracker};
+    use crate::server::service::cache::{Cache, LruTtlSet, MockCacheUsageTracker};
 
     const KEY: u32 = 1;
     const VALUE: &str = "value";
 
     #[test]
-    pub fn get_no_entry() {
+    pub fn cache_get_no_entry() {
         let cache: Cache<u32, &str> = Cache::new(
             NonZeroUsize::new(1).unwrap(),
             Arc::new(Box::new(MockCacheUsageTracker::new())),
@@ -276,7 +351,7 @@ mod tests {
     }
 
     #[test]
-    pub fn get_existing_entry() {
+    pub fn cache_get_existing_entry() {
         let cache: Cache<u32, &str> = Cache::new(
             NonZeroUsize::new(1).unwrap(),
             Arc::new(Box::new(MockCacheUsageTracker::new())),
@@ -290,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    pub fn push_no_entries() {
+    pub fn cache_push_no_entries() {
         let cache: Cache<u32, &str> = Cache::new(
             NonZeroUsize::new(1).unwrap(),
             Arc::new(Box::new(MockCacheUsageTracker::new())),
@@ -302,7 +377,7 @@ mod tests {
     }
 
     #[test]
-    pub fn push_same_entity() {
+    pub fn cache_push_same_entity() {
         let cache: Cache<u32, &str> = Cache::new(
             NonZeroUsize::new(1).unwrap(),
             Arc::new(Box::new(MockCacheUsageTracker::new())),
@@ -318,7 +393,7 @@ mod tests {
     }
 
     #[test]
-    pub fn push_evicted_entity() {
+    pub fn cache_push_evicted_entity() {
         let mut cache_usage_tracker = MockCacheUsageTracker::new();
         cache_usage_tracker
             .expect_register_evicted()
@@ -336,5 +411,132 @@ mod tests {
         let result = cache.push(2, "another value");
 
         assert_eq!(result, Some((KEY, VALUE)));
+    }
+
+    #[test]
+    pub fn cache_pop_no_entry() {
+        let cache: Cache<u32, &str> = Cache::new(
+            NonZeroUsize::new(1).unwrap(),
+            Arc::new(Box::new(MockCacheUsageTracker::new())),
+        );
+
+        let result = cache.pop(&KEY);
+
+        assert_eq!(result, None);
+    }
+    #[test]
+    pub fn cache_pop_existing_entry() {
+        let cache: Cache<u32, &str> = Cache::new(
+            NonZeroUsize::new(1).unwrap(),
+            Arc::new(Box::new(MockCacheUsageTracker::new())),
+        );
+
+        cache.push(KEY, VALUE);
+
+        let result = cache.pop(&KEY);
+
+        assert_eq!(result, Some(VALUE));
+    }
+
+    #[test]
+    pub fn lru_ttl_set_contains_no_entries() {
+        let set: LruTtlSet<i32> = LruTtlSet::new(
+            NonZeroUsize::new(10).unwrap(),
+            Duration::from_secs(1),
+            Arc::new(Box::new(MockCacheUsageTracker::new())),
+        );
+
+        assert!(!set.contains(&1));
+    }
+
+    #[test]
+    pub fn lru_ttl_set_add() {
+        let val = 1;
+        let set = LruTtlSet::new(
+            NonZeroUsize::new(10).unwrap(),
+            Duration::from_secs(1),
+            Arc::new(Box::new(MockCacheUsageTracker::new())),
+        );
+
+        set.add(&val);
+
+        assert!(set.contains(&val));
+    }
+
+    #[test]
+    pub fn lru_ttl_set_contains_another_entry() {
+        let set = LruTtlSet::new(
+            NonZeroUsize::new(10).unwrap(),
+            Duration::from_secs(1),
+            Arc::new(Box::new(MockCacheUsageTracker::new())),
+        );
+
+        set.add(&1);
+
+        assert!(!set.contains(&2));
+    }
+
+    #[test]
+    pub fn lru_ttl_set_contains_expired_entry() {
+        let val = 1;
+        let duration = Duration::from_millis(10);
+        let set = LruTtlSet::new(
+            NonZeroUsize::new(10).unwrap(),
+            duration,
+            Arc::new(Box::new(MockCacheUsageTracker::new())),
+        );
+
+        set.add(&val);
+        assert!(set.contains(&val));
+
+        sleep(duration);
+
+        assert!(!set.contains(&val));
+    }
+
+    #[test]
+    pub fn lru_ttl_add_full_capacity_evicted_entity() {
+        let existing_value = 1;
+        let new_value = 2;
+        let mut cache_usage_tracker = MockCacheUsageTracker::new();
+        cache_usage_tracker
+            .expect_register_evicted()
+            .return_const(())
+            .once();
+        let set = LruTtlSet::new(
+            NonZeroUsize::new(1).unwrap(),
+            Duration::from_millis(1000),
+            Arc::new(Box::new(cache_usage_tracker)),
+        );
+
+        set.add(&existing_value);
+        set.add(&new_value);
+
+        assert!(!set.contains(&existing_value));
+        assert!(set.contains(&new_value));
+    }
+
+    #[test]
+    pub fn lru_ttl_add_full_capacity_expired_entity() {
+        let duration = Duration::from_millis(10);
+        let existing_value = 1;
+        let expired_value = 2;
+        let new_value = 3;
+        let set = LruTtlSet::new(
+            NonZeroUsize::new(2).unwrap(),
+            duration,
+            Arc::new(Box::new(MockCacheUsageTracker::new())),
+        );
+
+        set.add(&expired_value);
+
+        sleep(duration);
+
+        set.add(&existing_value);
+        set.add(&new_value);
+
+        assert!(!set.contains(&expired_value));
+        assert!(set.contains(&existing_value));
+        assert!(set.contains(&new_value));
     }
 }

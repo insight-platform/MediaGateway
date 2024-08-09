@@ -4,7 +4,9 @@
   "auth": {
     "basic": {
       "etcd": {
-        "urls": "http://etcd:2379",
+        "urls": [
+          "https://etcd:2379"
+        ],
         "tls": {
           "root_certificate": "etcd-ca.crt",
           "identity": {
@@ -41,6 +43,13 @@
             "nanos": 0
           },
           "evicted_threshold": 10
+        }
+      },
+      "quarantine": {
+        "failed_attempt_limit": 3,
+        "period": {
+          "secs": 60,
+          "nanos": 0
         }
       }
     }
