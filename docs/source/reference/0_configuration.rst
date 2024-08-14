@@ -413,8 +413,11 @@ Authentication settings for the server.
       - etcd configuration. See below.
       - true
     * - cache
-      - Settings for authentication cache. See :ref:`cache configuration section <cache configuration>`.
+      - Settings for authentication caching structures. See :ref:`cache configuration section <cache configuration>`.
       - true
+    * - quarantine
+      - Settings for authentication quarantine. See below.
+      - false
 
 **etcd**
 
@@ -447,6 +450,21 @@ Authentication settings for the server.
       - true
     * - cache
       - Settings for user data cache. See :ref:`cache configuration section <cache configuration>`.
+      - true
+
+**authentication quarantine**
+
+.. list-table::
+    :header-rows: 1
+
+    * - Field
+      - Description
+      - Mandatory
+    * - failed_attempt_limit
+      - A number of failed attempts after which a quarantine will start for a user.
+      - true
+    * - period
+      - A period to quarantine a user. See :ref:`duration configuration <duration configuration>`.
       - true
 
 .. _statistics configuration:

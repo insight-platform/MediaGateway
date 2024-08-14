@@ -69,10 +69,11 @@ use media_gateway_common::health::HealthService;
 use server::configuration::GatewayConfiguration;
 
 use crate::server::api::gateway;
-use crate::server::security::{basic_auth_validator, BasicAuthCheckResult};
-use crate::server::service::cache::{
-    Cache, CacheUsageFactory, CacheUsageTracker, NoOpCacheUsageTracker,
+use crate::server::security::quarantine::{
+    AuthQuarantine, AuthQuarantineFactory, NoOpAuthQuarantine,
 };
+use crate::server::security::{basic_auth_validator, BasicAuthCheckResult};
+use crate::server::service::cache::{Cache, CacheUsageFactory, NoOpCacheUsageTracker};
 use crate::server::service::crypto::argon2::Argon2PasswordService;
 use crate::server::service::crypto::PasswordService;
 use crate::server::service::gateway::GatewayService;
@@ -84,8 +85,8 @@ mod server;
 
 type AuthAppData = (
     Box<dyn Storage<UserData> + Sync + Send>,
-    NonZeroUsize,
-    Arc<Box<dyn CacheUsageTracker + Sync + Send>>,
+    Cache<Credentials, BasicAuthCheckResult>,
+    Box<dyn AuthQuarantine + Sync + Send>,
 );
 
 fn main() -> Result<()> {
@@ -110,42 +111,50 @@ fn main() -> Result<()> {
     let gateway_service = web::Data::new(Mutex::new(GatewayService::try_from(&conf)?));
     let health_service = web::Data::new(HealthService::new());
     let auth_enabled = conf.auth.is_some();
-    let (storage, cache_size, cache_usage_tracker): AuthAppData = if let Some(auth_conf) = conf.auth
-    {
-        let auth_cache_usage_tracker = CacheUsageFactory::from(
-            auth_conf.basic.cache.usage.as_ref(),
-            "auth".to_string(),
-            &runtime,
-        );
-        let storage_cache_usage_tracker = CacheUsageFactory::from(
-            auth_conf.basic.etcd.cache.usage.as_ref(),
-            "user".to_string(),
-            &runtime,
-        );
-        (
-            Box::new(
-                EtcdStorage::try_from((
-                    &auth_conf.basic.etcd,
-                    &runtime,
-                    storage_cache_usage_tracker.clone(),
-                ))
-                .unwrap(),
-            ),
-            auth_conf.basic.cache.size,
-            auth_cache_usage_tracker,
-        )
-    } else {
-        (
-            Box::new(EmptyStorage {}),
-            NonZeroUsize::new(1).unwrap(),
-            Arc::new(Box::new(NoOpCacheUsageTracker {})),
-        )
-    };
+    let (user_storage, auth_cache, auth_quarantine): AuthAppData =
+        if let Some(auth_conf) = conf.auth {
+            let auth_check_result_cache_usage_tracker = CacheUsageFactory::from(
+                auth_conf.basic.cache.usage.as_ref(),
+                "auth check result".to_string(),
+                &runtime,
+            );
+            let auth_quarantine = AuthQuarantineFactory::from(&auth_conf.basic, &runtime)?;
+            let storage_cache_usage_tracker = CacheUsageFactory::from(
+                auth_conf.basic.etcd.cache.usage.as_ref(),
+                "user".to_string(),
+                &runtime,
+            );
+            (
+                Box::new(
+                    EtcdStorage::try_from((
+                        &auth_conf.basic.etcd,
+                        &runtime,
+                        storage_cache_usage_tracker.clone(),
+                    ))
+                    .unwrap(),
+                ),
+                Cache::new(
+                    auth_conf.basic.cache.size,
+                    auth_check_result_cache_usage_tracker,
+                ),
+                auth_quarantine,
+            )
+        } else {
+            (
+                Box::new(EmptyStorage {}),
+                Cache::new(
+                    NonZeroUsize::new(1).unwrap(),
+                    Arc::new(Box::new(NoOpCacheUsageTracker {})),
+                ),
+                Box::new(NoOpAuthQuarantine {}),
+            )
+        };
     let basic_auth_cache: web::Data<Cache<Credentials, BasicAuthCheckResult>> =
-        web::Data::new(Cache::new(cache_size, cache_usage_tracker));
+        web::Data::new(auth_cache);
+    let basic_auth_quarantine = web::Data::new(auth_quarantine);
     let password_service: web::Data<Box<dyn PasswordService + Sync + Send>> =
         web::Data::new(Box::new(Argon2PasswordService {}));
-    let user_service = web::Data::new(UserService::new(storage));
+    let user_service = web::Data::new(UserService::new(user_storage));
 
     let mut http_server = HttpServer::new(move || {
         App::new()
@@ -155,6 +164,7 @@ fn main() -> Result<()> {
                     .app_data(user_service.clone())
                     .app_data(password_service.clone())
                     .app_data(basic_auth_cache.clone())
+                    .app_data(basic_auth_quarantine.clone())
                     .route("", web::post().to(gateway))
                     .wrap(Condition::new(
                         auth_enabled,
