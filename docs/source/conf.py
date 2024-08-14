@@ -4,7 +4,7 @@ project = 'Media Gateway'
 copyright = '2024, BWSoft Management, LLC'
 author = 'BWSoft'
 
-version = '0.1.0'
+version = '0.2.0'
 release = version
 
 # -- General configuration ---------------------------------------------------

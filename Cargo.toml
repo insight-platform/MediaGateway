@@ -26,7 +26,7 @@ openssl = "0.10"
 mockall = "0.12"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Ivan Kudriavtsev <ivan.a.kudryavtsev@gmail.com>", "Ksenia Vazhdaeva <vazhdaeva_ks@bw-sw.com>"]
 description = "Media Gateway (client and server)"
