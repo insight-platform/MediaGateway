@@ -1,4 +1,6 @@
 {
+  "ip": "0.0.0.0",
+  "port": 8081,
   "url": "http://media-gateway-server:8080",
   "in_stream": {
     "url": "rep+bind:ipc:///tmp/client",
@@ -14,7 +16,6 @@
     "inflight_ops": 100
   },
   "statistics": {
-    "frame_period": 1000,
-    "history_size": 1000
+    "frame_period": 1000
   }
 }

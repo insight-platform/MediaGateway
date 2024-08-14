@@ -1,17 +1,20 @@
+use std::num::NonZeroUsize;
 use std::time::Duration;
 
 use savant_core::transport::zeromq::{SyncWriter, WriterConfigBuilder};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
 
-use media_gateway_common::configuration::{BasicUser, StatisticsConfiguration};
+use media_gateway_common::configuration::{
+    ClientTlsConfiguration, Credentials, Identity, StatisticsConfiguration,
+};
 
 #[config]
 #[derive(Debug, Serialize)]
 pub struct GatewayConfiguration {
     pub(crate) ip: String,
     pub(crate) port: u16,
-    pub(crate) ssl: Option<SslConfiguration>,
+    pub(crate) tls: Option<ServerTlsConfiguration>,
     pub(crate) out_stream: SinkConfiguration,
     pub(crate) auth: Option<AuthConfiguration>,
     pub(crate) statistics: Option<StatisticsConfiguration>,
@@ -25,25 +28,65 @@ impl GatewayConfiguration {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SslConfiguration {
-    pub server: ServerSslConfiguration,
-    pub client: Option<ClientSslConfiguration>,
+pub struct ServerTlsConfiguration {
+    pub identity: Identity,
+    pub peers: Option<PeerTlsConfiguration>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ServerSslConfiguration {
-    pub certificate: String,
-    pub certificate_key: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ClientSslConfiguration {
-    pub certificate_directory: String,
+pub struct PeerTlsConfiguration {
+    pub lookup_hash_directory: String,
+    pub crl_enabled: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthConfiguration {
-    pub(crate) basic: Vec<BasicUser>,
+    pub(crate) basic: BasicAuthConfiguration,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BasicAuthConfiguration {
+    pub etcd: EtcdConfiguration,
+    pub cache: CacheConfiguration,
+    pub quarantine: Option<AuthQuarantineConfiguration>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthQuarantineConfiguration {
+    pub period: Duration,
+    pub failed_attempt_limit: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CacheConfiguration {
+    pub size: NonZeroUsize,
+    pub usage: Option<CacheUsage>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CacheUsage {
+    pub period: Duration,
+    pub evicted_threshold: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EtcdConfiguration {
+    pub urls: Vec<String>,
+    pub tls: Option<ClientTlsConfiguration>,
+    pub credentials: Option<Credentials>,
+    pub path: String,
+    pub data_format: EtcdDataFormat,
+    pub lease_timeout: Duration,
+    pub connect_timeout: Duration,
+    pub cache: CacheConfiguration,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum EtcdDataFormat {
+    #[serde(rename = "json")]
+    Json,
+    #[serde(rename = "yaml")]
+    Yaml,
 }
 
 impl TryFrom<&SinkConfiguration> for SyncWriter {

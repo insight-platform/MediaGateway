@@ -7,50 +7,38 @@ use savant_core::transport::zeromq::{NonBlockingReader, ReaderConfigBuilder};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
 
-use media_gateway_common::configuration::{BasicUser, StatisticsConfiguration};
+use media_gateway_common::configuration::{
+    ClientTlsConfiguration, Credentials, StatisticsConfiguration,
+};
 
-/// SSL settings to connect to the media gateway server.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SslConfiguration {
-    /// Server settings
-    pub server: Option<ServerSslConfiguration>,
-    /// Client settings
-    pub client: Option<ClientSslConfiguration>,
-}
-
-/// Server SSL settings.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ServerSslConfiguration {
-    /// A path to a self-signed PEM encoded server certificate or PEM encoded CA certificate
-    pub certificate: String,
-}
-
-/// Client SSL settings. See [`Identity::from_pkcs8_pem`](reqwest::Identity::from_pkcs8_pem).
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ClientSslConfiguration {
-    /// A path to a chain of PEM encoded X509 certificates, with the leaf certificate first
-    pub certificate: String,
-    /// A path to a PEM encoded PKCS #8 formatted private key
-    pub certificate_key: String,
-}
+use crate::retry::RetryStrategy;
+use crate::wait::WaitStrategy;
 
 /// Authentication settings to connect to the media gateway server.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthConfiguration {
     /// Credentials for basic authentication.
-    pub basic: BasicUser,
+    pub basic: Credentials,
 }
 
 /// A configuration for [`GatewayClient`](crate::client::GatewayClient).
 #[config]
 #[derive(Debug, Serialize)]
 pub struct GatewayClientConfiguration {
+    /// A string representation of an IP address or a host name to bind to
+    pub ip: String,
+    /// A port to bind to
+    pub port: u16,
     /// An endpoint of the media gateway service to accept messages
     pub url: String,
+    /// A strategy how to retry to send a message to the media gateway service
+    pub retry_strategy: Option<RetryStrategy>,
     /// Reader configuration
     pub in_stream: SourceConfiguration,
-    /// SSL settings
-    pub ssl: Option<SslConfiguration>,
+    /// A strategy how to wait for data while reading
+    pub wait_strategy: Option<WaitStrategy>,
+    /// TLS settings
+    pub tls: Option<ClientTlsConfiguration>,
     /// Authentication settings
     pub auth: Option<AuthConfiguration>,
     /// Statistics settings

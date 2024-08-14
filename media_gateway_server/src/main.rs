@@ -9,7 +9,7 @@
 //! ```
 //!
 //! Following features are supported:
-//! * SSL (including a self-signed PEM encoded certificate)
+//! * TLS (including a self-signed PEM encoded certificate)
 //! * client certificate authentication
 //! * basic authentication with an in-memory user data storage
 //!
@@ -47,8 +47,9 @@
 //! See [configuration files](https://github.com/insight-platform/MediaGateway/blob/main/configuration/samples/server).
 //! `out_stream` fields represents configuration for
 //! [`WriterConfigBuilder`](savant_core::transport::zeromq::WriterConfigBuilder).
-use std::collections::HashMap;
 use std::env::args;
+use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use actix_web::middleware::Condition;
 use actix_web::web::scope;
@@ -59,20 +60,36 @@ use log::info;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod, SslVerifyMode};
 use openssl::x509::store::{X509Lookup, X509StoreBuilder};
 use openssl::x509::verify::X509VerifyFlags;
+use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
+use media_gateway_common::api::health;
+use media_gateway_common::configuration::Credentials;
+use media_gateway_common::health::HealthService;
 use server::configuration::GatewayConfiguration;
 
-use crate::server::api::{gateway, health};
-use crate::server::security::basic_auth_validator;
+use crate::server::api::gateway;
+use crate::server::security::quarantine::{
+    AuthQuarantine, AuthQuarantineFactory, NoOpAuthQuarantine,
+};
+use crate::server::security::{basic_auth_validator, BasicAuthCheckResult};
+use crate::server::service::cache::{Cache, CacheUsageFactory, NoOpCacheUsageTracker};
+use crate::server::service::crypto::argon2::Argon2PasswordService;
+use crate::server::service::crypto::PasswordService;
 use crate::server::service::gateway::GatewayService;
-use crate::server::service::health::HealthService;
-use crate::server::service::user::UserService;
+use crate::server::service::user::{UserData, UserService};
+use crate::server::storage::etcd::EtcdStorage;
+use crate::server::storage::{EmptyStorage, Storage};
 
 mod server;
 
-#[actix_web::main]
-async fn main() -> Result<()> {
+type AuthAppData = (
+    Box<dyn Storage<UserData> + Sync + Send>,
+    Cache<Credentials, BasicAuthCheckResult>,
+    Box<dyn AuthQuarantine + Sync + Send>,
+);
+
+fn main() -> Result<()> {
     println!("--------------------------------------------------------");
     println!("             In-Sight Media Gateway Server              ");
     println!("GitHub: https://github.com/insight-platform/MediaGateway");
@@ -80,6 +97,8 @@ async fn main() -> Result<()> {
     println!("      For more information, see the LICENSE file        ");
     println!("           (c) 2024 BwSoft Management, LLC              ");
     println!("--------------------------------------------------------");
+
+    let runtime = Runtime::new().unwrap();
 
     env_logger::init();
     let conf_arg = args()
@@ -92,23 +111,60 @@ async fn main() -> Result<()> {
     let gateway_service = web::Data::new(Mutex::new(GatewayService::try_from(&conf)?));
     let health_service = web::Data::new(HealthService::new());
     let auth_enabled = conf.auth.is_some();
-    let users = if let Some(auth_conf) = conf.auth {
-        HashMap::from_iter(
-            auth_conf
-                .basic
-                .iter()
-                .map(|e| (e.id.clone(), e.password.clone())),
-        )
-    } else {
-        HashMap::new()
-    };
-    let user_service = web::Data::new(UserService::new(users));
+    let (user_storage, auth_cache, auth_quarantine): AuthAppData =
+        if let Some(auth_conf) = conf.auth {
+            let auth_check_result_cache_usage_tracker = CacheUsageFactory::from(
+                auth_conf.basic.cache.usage.as_ref(),
+                "auth check result".to_string(),
+                &runtime,
+            );
+            let auth_quarantine = AuthQuarantineFactory::from(&auth_conf.basic, &runtime)?;
+            let storage_cache_usage_tracker = CacheUsageFactory::from(
+                auth_conf.basic.etcd.cache.usage.as_ref(),
+                "user".to_string(),
+                &runtime,
+            );
+            (
+                Box::new(
+                    EtcdStorage::try_from((
+                        &auth_conf.basic.etcd,
+                        &runtime,
+                        storage_cache_usage_tracker.clone(),
+                    ))
+                    .unwrap(),
+                ),
+                Cache::new(
+                    auth_conf.basic.cache.size,
+                    auth_check_result_cache_usage_tracker,
+                ),
+                auth_quarantine,
+            )
+        } else {
+            (
+                Box::new(EmptyStorage {}),
+                Cache::new(
+                    NonZeroUsize::new(1).unwrap(),
+                    Arc::new(Box::new(NoOpCacheUsageTracker {})),
+                ),
+                Box::new(NoOpAuthQuarantine {}),
+            )
+        };
+    let basic_auth_cache: web::Data<Cache<Credentials, BasicAuthCheckResult>> =
+        web::Data::new(auth_cache);
+    let basic_auth_quarantine = web::Data::new(auth_quarantine);
+    let password_service: web::Data<Box<dyn PasswordService + Sync + Send>> =
+        web::Data::new(Box::new(Argon2PasswordService {}));
+    let user_service = web::Data::new(UserService::new(user_storage));
+
     let mut http_server = HttpServer::new(move || {
         App::new()
             .service(
                 scope("/")
                     .app_data(gateway_service.clone())
                     .app_data(user_service.clone())
+                    .app_data(password_service.clone())
+                    .app_data(basic_auth_cache.clone())
+                    .app_data(basic_auth_quarantine.clone())
                     .route("", web::post().to(gateway))
                     .wrap(Condition::new(
                         auth_enabled,
@@ -122,26 +178,34 @@ async fn main() -> Result<()> {
             )
     });
 
-    http_server = if let Some(ssl_conf) = conf.ssl {
+    http_server = if let Some(ssl_conf) = conf.tls {
         let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
-        builder.set_private_key_file(ssl_conf.server.certificate_key, SslFiletype::PEM)?;
-        builder.set_certificate_chain_file(ssl_conf.server.certificate)?;
+        builder.set_private_key_file(ssl_conf.identity.key, SslFiletype::PEM)?;
+        builder.set_certificate_chain_file(ssl_conf.identity.certificate)?;
 
-        builder = if let Some(client_ssl_conf) = &ssl_conf.client {
+        builder = if let Some(peer_tls_conf) = &ssl_conf.peers {
             let mut cert_store_builder = X509StoreBuilder::new().unwrap();
 
             let lookup_method = X509Lookup::hash_dir();
             let lookup = cert_store_builder.add_lookup(lookup_method).unwrap();
             lookup
-                .add_dir(&client_ssl_conf.certificate_directory, SslFiletype::PEM)
+                .add_dir(
+                    peer_tls_conf.lookup_hash_directory.as_str(),
+                    SslFiletype::PEM,
+                )
                 .unwrap();
 
-            cert_store_builder
-                .set_flags(X509VerifyFlags::from_iter(vec![
-                    X509VerifyFlags::CRL_CHECK,
-                    X509VerifyFlags::CRL_CHECK_ALL,
-                ]))
-                .unwrap();
+            let cert_store_builder = if peer_tls_conf.crl_enabled {
+                cert_store_builder
+                    .set_flags(X509VerifyFlags::from_iter(vec![
+                        X509VerifyFlags::CRL_CHECK,
+                        X509VerifyFlags::CRL_CHECK_ALL,
+                    ]))
+                    .unwrap();
+                cert_store_builder
+            } else {
+                cert_store_builder
+            };
 
             builder
                 .set_verify_cert_store(cert_store_builder.build())
@@ -160,5 +224,5 @@ async fn main() -> Result<()> {
         http_server.bind(bind_address).unwrap()
     };
 
-    http_server.run().await.map_err(anyhow::Error::from)
+    runtime.block_on(async { http_server.run().await.map_err(anyhow::Error::from) })
 }

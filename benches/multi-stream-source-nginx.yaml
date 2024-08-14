@@ -20,12 +20,16 @@ services:
       multi-stream-source:
         aliases:
           - media-gateway-client
+    ports:
+      - 8081:8081
     depends_on:
       - nginx
     volumes:
       - /tmp:/tmp
       - ./config/client_nginx_config.json:/opt/etc/config.json
-      - ./certs/nginx:/etc/certs
+      - ./ca/ca.crt:/etc/certs/ca.crt
+      - ./ca/certs/client.crt:/etc/certs/client.crt
+      - ./ca/certs/client.key:/etc/certs/client.key
 
   nginx:
     image: nginx
@@ -39,7 +43,9 @@ services:
       - 443:443
     volumes:
       - ./config/nginx.conf:/etc/nginx/nginx.conf
-      - ./certs/nginx:/etc/certs
+      - ./ca/ca.crt:/etc/certs/ca.crt
+      - ./ca/certs/nginx.crt:/etc/certs/nginx.crt
+      - ./ca/certs/nginx.key:/etc/certs/nginx.key
 
   source:
     image: ghcr.io/insight-platform/savant-adapters-gstreamer:latest

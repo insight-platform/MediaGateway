@@ -14,19 +14,27 @@ rust-version.workspace = true
 savant_core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 anyhow = { workspace = true }
 twelf = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 log = { workspace = true }
 env_logger = { workspace = true }
+actix-web = { workspace = true }
+actix-protobuf = { workspace = true }
+actix-web-httpauth = { workspace = true }
+openssl = { workspace = true }
+mockall = { workspace = true }
 
 media_gateway_common = { path = "../media_gateway_common" }
 
-actix-web = { version = "4", features = ["openssl"] }
-actix-protobuf = "0.10"
-actix-web-httpauth = "0.8.2"
-openssl = "0.10"
+etcd_dynamic_state = { git = "https://github.com/insight-platform/etcd_dynamic_state", tag = "0.2.12" }
+etcd-client = { version = "0.13", features = ["tls"] }
+parking_lot = "0.12"
+argon2 = "0.5"
+lru = "0.12"
 
 [dev-dependencies]
 savant-protobuf = { workspace = true }
 rand = { workspace = true }
+futures = "0.3.30"

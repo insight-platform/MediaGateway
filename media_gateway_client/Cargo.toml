@@ -20,10 +20,13 @@ twelf = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "signal", "sync"] }
 log = { workspace = true }
 env_logger = { workspace = true }
+actix-web = { workspace = true }
+
 media_gateway_common = { path = "../media_gateway_common" }
 
 reqwest = { version = "0.12.5", features = ["native-tls"] }
 http-auth-basic = "0.3.3"
+tokio-timerfd = "0.2.0"
 
 [dev-dependencies]
 rand = { workspace = true }

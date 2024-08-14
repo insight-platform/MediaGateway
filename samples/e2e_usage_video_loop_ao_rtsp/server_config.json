@@ -18,7 +18,9 @@
     "fix_ipc_permissions": 511
   },
   "statistics": {
-    "timestamp_period": 1000,
-    "history_size": 1000
+    "timestamp_period": {
+      "secs": 1,
+      "nanos": 0
+    }
   }
 }

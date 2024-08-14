@@ -22,14 +22,14 @@ and `out_stream` in the server configuration corresponds to
 [WriterConfig](https://github.com/insight-platform/savant-rs/blob/main/savant_core/src/transport/zeromq/writer_config.rs).
 Examples of configuration files can be found in [samples](samples) directory.
 
-The server has a health endpoint.
+Both server and client have a health endpoint.
 
 ```
  GET /health HTTP/1.1
  Host: <host>
  ```
 
-If the server is healthy an HTTP response with 200 OK status code and the body as below will be returned.
+If the server/client is healthy an HTTP response with 200 OK status code and the body as below will be returned.
 
  ```json
  {
@@ -65,12 +65,13 @@ docker run \
 
 ### Client
 
-To run the client with [the default configuration](samples/configuration/client/default_config.json) and to mount `/tmp`
-directory
+To run the client with [the default configuration](samples/configuration/client/default_config.json), to mount `/tmp`
+directory and publish the port from the default configuration
 
 ```bash
 docker run \
  -v /tmp:/tmp \
+ -p 8081:8081 \
   -e "GATEWAY_URL=<GATEWAY_URL>" \
  ghcr.io/insight-platform/media-gateway-client:latest
 ```
@@ -82,6 +83,9 @@ To run the server with another configuration (`/home/user/client_config.json`)
 ```bash
 docker run \
  -v /home/user/client_config.json:/opt/etc/custom_config.json \
+ -p <HOST_PORT>:<CONFIG_PORT> \
  ghcr.io/insight-platform/media-gateway-client:latest \
  /opt/etc/custom_config.json
 ```
+
+where `<CONFIG_PORT>` is the port specified in the configuration file and `<HOST_PORT>` is the port on the host machine.

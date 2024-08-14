@@ -1,4 +1,5 @@
 use actix_protobuf::ProtoBuf;
+use actix_web::web::ReqData;
 use actix_web::HttpResponse;
 use log::{debug, error, info};
 use savant_core::message::Message;
@@ -8,6 +9,7 @@ use media_gateway_common::model::Media;
 use media_gateway_common::statistics::StatisticsService;
 
 use crate::server::configuration::GatewayConfiguration;
+use crate::server::service::user::UserData;
 
 const STAT_STAGE_NAME: &str = "server-relay";
 
@@ -23,7 +25,11 @@ impl GatewayService {
             statistics_service,
         }
     }
-    pub fn process(&self, media: ProtoBuf<Media>) -> HttpResponse {
+    pub fn process(
+        &self,
+        media: ProtoBuf<Media>,
+        user_data: Option<ReqData<UserData>>,
+    ) -> HttpResponse {
         let topic_result = std::str::from_utf8(&media.topic);
         if topic_result.is_err() {
             return HttpResponse::BadRequest().finish();
@@ -56,6 +62,18 @@ impl GatewayService {
             message,
             media.data.len()
         );
+
+        if let Some(user_data) = user_data {
+            if user_data.allowed_routing_labels.is_some()
+                && !user_data
+                    .allowed_routing_labels
+                    .as_ref()
+                    .unwrap()
+                    .matches(&message.meta().routing_labels)
+            {
+                return HttpResponse::Unauthorized().finish();
+            }
+        }
 
         let data = media
             .data
@@ -121,7 +139,10 @@ mod tests {
 
     use actix_protobuf::ProtoBuf;
     use actix_web::http::StatusCode;
+    use actix_web::web::ReqData;
+    use actix_web::{FromRequest, HttpMessage};
     use rand::Rng;
+    use savant_core::message::label_filter::LabelFilterRule;
     use savant_core::message::Message;
     use savant_core::transport::zeromq::{
         ReaderConfigBuilder, ReaderResult, SyncReader, SyncWriter, WriterConfigBuilder,
@@ -130,6 +151,7 @@ mod tests {
     use media_gateway_common::model::Media;
 
     use crate::server::service::gateway::GatewayService;
+    use crate::server::service::user::UserData;
 
     #[test]
     fn process_invalid_topic() {
@@ -141,7 +163,7 @@ mod tests {
         };
         let service = new_service();
 
-        let response = service.process(ProtoBuf(media));
+        let response = service.process(ProtoBuf(media), None);
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
@@ -155,7 +177,7 @@ mod tests {
         };
         let service = new_service();
 
-        let response = service.process(ProtoBuf(media));
+        let response = service.process(ProtoBuf(media), None);
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
@@ -170,7 +192,7 @@ mod tests {
         // timeout to connect writer and reader
         thread::sleep(Duration::from_secs(1));
 
-        let response = service.process(ProtoBuf(media.clone()));
+        let response = service.process(ProtoBuf(media.clone()), None);
 
         assert_eq!(response.status(), StatusCode::OK);
 
@@ -193,7 +215,7 @@ mod tests {
             check_reader_result_message(&reader_result, &message, &topic, &data);
         });
 
-        let response = service.process(ProtoBuf(media.clone()));
+        let response = service.process(ProtoBuf(media.clone()), None);
 
         assert_eq!(response.status(), StatusCode::OK);
 
@@ -205,9 +227,43 @@ mod tests {
         let (_, media) = new_message_and_media();
         let service = new_service_with_url(format!("req+connect:{}", new_tcp()).as_str());
 
-        let response = service.process(ProtoBuf(media.clone()));
+        let response = service.process(ProtoBuf(media.clone()), None);
 
         assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+    }
+
+    #[test]
+    fn process_no_user_labels() {
+        process_labels(None, StatusCode::OK)
+    }
+
+    #[test]
+    fn process_invalid_labels() {
+        process_labels(
+            Some(LabelFilterRule::Set("label".to_string())),
+            StatusCode::UNAUTHORIZED,
+        )
+    }
+
+    fn process_labels(
+        user_label_filter_rule: Option<LabelFilterRule>,
+        expected_status: StatusCode,
+    ) {
+        let (_message, media) = new_message_and_media();
+        let user_data = UserData {
+            password_hash: "".to_string(),
+            allowed_routing_labels: user_label_filter_rule,
+        };
+        let request = actix_web::test::TestRequest::default().to_srv_request();
+        request.extensions_mut().insert(user_data);
+
+        let user_data = futures::executor::block_on(ReqData::extract(request.request())).unwrap();
+        let ipc = new_ipc();
+        let service = new_service_with_url(format!("pub+bind:{}", ipc).as_str());
+
+        let response = service.process(ProtoBuf(media.clone()), Some(user_data));
+
+        assert_eq!(response.status(), expected_status);
     }
 
     fn new_service() -> GatewayService {

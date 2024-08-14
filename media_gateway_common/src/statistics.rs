@@ -63,12 +63,21 @@ impl TryFrom<(&StatisticsConfiguration, &str)> for StatisticsService {
 
     fn try_from(value: (&StatisticsConfiguration, &str)) -> Result<Self, Self::Error> {
         let configuration = value.0;
-        if configuration.frame_period.is_none() && configuration.timestamp_period.is_none() {
-            bail!("At least one of frame_period and timestamp_period should be specified")
+        if configuration.frame_period.is_none() && configuration.timestamp_period.is_none()
+            || configuration.frame_period.is_some() && configuration.timestamp_period.is_some()
+        {
+            bail!("Exactly one of frame_period and timestamp_period must be specified")
         }
+        let timestamp_period = match configuration.timestamp_period {
+            Some(duration) => {
+                let duration_ms = i64::try_from(duration.as_millis())?;
+                Some(duration_ms)
+            }
+            None => None,
+        };
         let pipeline_configuration = PipelineConfigurationBuilder::default()
-            .collection_history(configuration.history_size)
-            .timestamp_period(configuration.timestamp_period)
+            .collection_history(2)
+            .timestamp_period(timestamp_period)
             .frame_period(configuration.frame_period)
             .build()?;
 

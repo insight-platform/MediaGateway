@@ -1,13 +1,14 @@
 {
   "ip": "0.0.0.0",
   "port": 8080,
-  "ssl": {
-    "server": {
-      "certificate": "server-cert.pem",
-      "certificate_key": "server-key.pem"
+  "tls": {
+    "identity": {
+      "certificate": "server.crt",
+      "key": "server.key"
     },
-    "client": {
-      "certificate_directory": "client-certs"
+    "peers": {
+      "lookup_hash_directory": "lookup-hash-dir",
+      "crl_enabled": true
     }
   },
   "out_stream": {
