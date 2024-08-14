@@ -6,7 +6,7 @@
       "certificate": "server.crt",
       "key": "server.key"
     },
-    "peer": {
+    "peers": {
       "lookup_hash_directory": "lookup-hash-dir",
       "crl_enabled": true
     }

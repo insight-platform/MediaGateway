@@ -4,7 +4,9 @@
   "auth": {
     "basic": {
       "etcd": {
-        "urls": "http://etcd:2379",
+        "urls": [
+          "https://etcd:2379"
+        ],
         "tls": {
           "root_certificate": "etcd-ca.crt",
           "identity": {
