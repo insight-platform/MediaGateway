@@ -2,12 +2,15 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Result};
+use opentelemetry::trace::{FutureExt, Status, TraceContextExt};
+use opentelemetry::KeyValue;
 use savant_core::transport::zeromq::{NonBlockingReader, ReaderResult};
 use tokio::sync::{mpsc, Mutex};
 use tokio_timerfd::sleep;
 
 use media_gateway_common::model::Media;
 use media_gateway_common::statistics::StatisticsService;
+use media_gateway_common::telemetry::{get_context_with_span, get_message_context};
 
 use crate::client::{ForwardResult, GatewayClient};
 use crate::configuration::GatewayClientConfiguration;
@@ -85,6 +88,11 @@ impl GatewayClientService {
                             ..
                         } => {
                             log::debug!("Success while reading message");
+                            let parent_ctx = get_message_context(&message);
+                            let ctx = get_context_with_span("process", &parent_ctx);
+                            let queue_ctx = get_context_with_span("queue", &ctx);
+                            let queue_span = queue_ctx.span();
+
                             let id = match reader_statistics_service.as_ref() {
                                 Some(service) => match service.register_message_start() {
                                     Ok(id) => Some(id),
@@ -105,10 +113,20 @@ impl GatewayClientService {
                                 topic,
                                 data,
                             };
-                            if let Err(e) = sender.send((id, media)).await {
+                            if let Err(e) = sender.send((id, media, ctx)).await {
                                 log::warn!("Error while sharing message: {:?}", e);
+                                if queue_span.is_recording() {
+                                    queue_span.record_error(&e);
+                                    queue_span
+                                        .set_status(Status::error("error while sharing message"));
+                                }
+                                queue_span.end();
                                 break;
                             }
+                            if queue_span.is_recording() {
+                                queue_span.set_status(Status::Ok);
+                            }
+                            queue_span.end();
                         }
                         ReaderResult::Timeout => {
                             log::debug!(
@@ -136,10 +154,17 @@ impl GatewayClientService {
 
         let sender_task: tokio::task::JoinHandle<Result<()>> = tokio::spawn(async move {
             log::info!("Message sending is started");
-            while let Some((id, media)) = receiver.recv().await {
+            while let Some((id, mut media, ctx)) = receiver.recv().await {
+                let ctx = get_context_with_span("forward", &ctx);
+                let span = ctx.span();
+
                 let mut retry: Option<Retry> = None;
                 loop {
-                    let forward_result = client.forward_message(&media).await;
+                    let retry_number = retry.as_ref().map_or(0, |e| e.number());
+                    let forward_result = client
+                        .forward_message(&mut media)
+                        .with_context(ctx.clone())
+                        .await;
                     match forward_result {
                         Ok(ForwardResult::Success) => {
                             if let Some(stat_id) = id {
@@ -160,21 +185,51 @@ impl GatewayClientService {
                             } else {
                                 log::debug!("Success while sending message (retry=0)");
                             }
+                            if span.is_recording() {
+                                span.add_event(
+                                    "attempt",
+                                    vec![
+                                        KeyValue::new("number", retry_number as i64),
+                                        KeyValue::new("result", ForwardResult::Success.to_string()),
+                                    ],
+                                );
+                                span.set_status(Status::Ok);
+                            }
+                            span.end();
+                            ctx.span().end();
                             break;
                         }
                         Ok(result) => {
                             log::warn!(
                                 "Failure while sending message (retry={}): {:?}",
-                                retry.as_ref().map_or(0, |e| e.number()),
+                                retry_number,
                                 result
                             );
+                            if span.is_recording() {
+                                span.add_event(
+                                    "attempt",
+                                    vec![
+                                        KeyValue::new("number", retry_number as i64),
+                                        KeyValue::new("result", result.to_string()),
+                                    ],
+                                );
+                            }
                         }
                         Err(e) => {
                             log::warn!(
                                 "Error while sending message (retry={}): {:?}",
-                                retry.as_ref().map_or(0, |e| e.number()),
+                                retry_number,
                                 e
-                            )
+                            );
+                            if span.is_recording() {
+                                span.add_event(
+                                    "attempt",
+                                    vec![
+                                        KeyValue::new("number", retry_number as i64),
+                                        KeyValue::new("error", e.to_string()),
+                                    ],
+                                );
+                            }
                         }
                     }
                     let next_retry = sender_retry_strategy.next_retry(retry);

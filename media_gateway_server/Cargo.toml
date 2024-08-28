@@ -23,8 +23,10 @@ env_logger = { workspace = true }
 actix-web = { workspace = true }
 actix-protobuf = { workspace = true }
 actix-web-httpauth = { workspace = true }
+http = { workspace = true }
 openssl = { workspace = true }
 mockall = { workspace = true }
+opentelemetry = { workspace = true }
 
 media_gateway_common = { path = "../media_gateway_common" }
 

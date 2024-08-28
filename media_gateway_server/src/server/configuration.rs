@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 use std::time::Duration;
 
+use savant_core::telemetry::TelemetryConfiguration;
 use savant_core::transport::zeromq::{SyncWriter, WriterConfigBuilder};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
@@ -18,6 +19,7 @@ pub struct GatewayConfiguration {
     pub(crate) out_stream: SinkConfiguration,
     pub(crate) auth: Option<AuthConfiguration>,
     pub(crate) statistics: Option<StatisticsConfiguration>,
+    pub(crate) telemetry: Option<TelemetryConfiguration>,
 }
 
 impl GatewayConfiguration {

@@ -1,14 +1,17 @@
 //! The media gateway client.
 //!
 //! The module provides [`GatewayClient`] and [`ForwardResult`].
+use std::fmt::{Display, Formatter};
 use std::fs;
 
 use anyhow::anyhow;
 use http_auth_basic::Credentials;
+use opentelemetry::Context;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{Certificate, Client, Identity, StatusCode};
 
 use media_gateway_common::model::Media;
+use media_gateway_common::telemetry::{get_propagated_context, propagate_header_context};
 
 use crate::configuration::GatewayClientConfiguration;
 
@@ -23,6 +26,12 @@ pub enum ForwardResult {
     /// Represents the error caused by
     /// [`WriterResult::AckTimeout`](savant_core::transport::zeromq::WriterResult::AckTimeout)
     AckTimeout,
+}
+
+impl Display for ForwardResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{:?}", self))
+    }
 }
 
 /// The client for the media gateway server.
@@ -64,12 +73,20 @@ impl GatewayClient {
     }
 
     /// Receives the messages using [`SyncReader`] and sends it to the media gateway server.
-    pub async fn forward_message(&self, media: &Media) -> anyhow::Result<ForwardResult> {
+    pub async fn forward_message(&self, media: &mut Media) -> anyhow::Result<ForwardResult> {
+        let ctx = Context::current();
+
+        media.update_context(get_propagated_context(&ctx));
         let data = media.to_proto()?;
+
+        let mut headers = HeaderMap::new();
+        propagate_header_context(&mut headers, &ctx);
+
         let send_result = self
             .client
             .post(&self.url)
             .body(data)
+            .headers(headers)
             .header(CONTENT_TYPE, "application/protobuf")
             .send()
             .await;
@@ -190,7 +207,7 @@ mod tests {
         let message = Message::unknown("message".to_string());
         let topic = "topic";
         let data: Vec<&[u8]> = vec![&[1]];
-        let media = Media {
+        let mut media = Media {
             message: Option::from(savant_protobuf::generated::Message::from(&message)),
             topic: topic.as_bytes().to_vec(),
             data: data.iter().map(|e| e.to_vec()).collect::<Vec<Vec<u8>>>(),
@@ -218,7 +235,7 @@ mod tests {
 
         let client = GatewayClient::new(Client::default(), gateway_url);
 
-        let actual_result = client.forward_message(&media).await;
+        let actual_result = client.forward_message(&mut media).await;
 
         match expected_result {
             Ok(expected_forward_result) => {

@@ -66,6 +66,7 @@ use tokio::sync::Mutex;
 use media_gateway_common::api::health;
 use media_gateway_common::configuration::Credentials;
 use media_gateway_common::health::HealthService;
+use media_gateway_common::telemetry;
 use server::configuration::GatewayConfiguration;
 
 use crate::server::api::gateway;
@@ -107,6 +108,13 @@ fn main() -> Result<()> {
     info!("Configuration: {}", conf_arg);
 
     let conf = GatewayConfiguration::new(&conf_arg)?;
+
+    if let Some(telemetry_conf) = conf.telemetry.as_ref() {
+        runtime.block_on(async {
+            telemetry::init(telemetry_conf);
+        });
+    }
+
     let bind_address = (conf.ip.as_str(), conf.port);
     let gateway_service = web::Data::new(Mutex::new(GatewayService::try_from(&conf)?));
     let health_service = web::Data::new(HealthService::new());
@@ -224,5 +232,9 @@ fn main() -> Result<()> {
         http_server.bind(bind_address).unwrap()
     };
 
-    runtime.block_on(async { http_server.run().await.map_err(anyhow::Error::from) })
+    let result = runtime.block_on(async { http_server.run().await.map_err(anyhow::Error::from) });
+
+    telemetry::shutdown();
+
+    result
 }

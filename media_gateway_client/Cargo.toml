@@ -21,6 +21,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "signal", "sync"] }
 log = { workspace = true }
 env_logger = { workspace = true }
 actix-web = { workspace = true }
+opentelemetry = { workspace = true }
 
 media_gateway_common = { path = "../media_gateway_common" }
 
