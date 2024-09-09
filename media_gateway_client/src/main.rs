@@ -29,6 +29,7 @@ use tokio::signal::{ctrl_c, unix};
 
 use media_gateway_common::api::health;
 use media_gateway_common::health::HealthService;
+use media_gateway_common::telemetry;
 
 use crate::configuration::GatewayClientConfiguration;
 use crate::service::GatewayClientService;
@@ -58,6 +59,10 @@ async fn main() -> Result<()> {
     let conf = GatewayClientConfiguration::new(&conf_arg)?;
     let bind_address = (conf.ip.as_str(), conf.port);
 
+    if let Some(telemetry_conf) = conf.telemetry.as_ref() {
+        telemetry::init(telemetry_conf);
+    }
+
     let health_service = web::Data::new(HealthService::new());
     let service = Arc::new(GatewayClientService::try_from(&conf)?);
     let service_to_stop = service.clone();
@@ -79,7 +84,7 @@ async fn main() -> Result<()> {
 
     tokio::spawn(async move { service.run().await });
 
-    HttpServer::new(move || {
+    let result = HttpServer::new(move || {
         App::new()
             .app_data(health_service.clone())
             .route("/health", web::get().to(health))
@@ -87,5 +92,9 @@ async fn main() -> Result<()> {
     .bind(bind_address)?
     .run()
     .await
-    .map_err(anyhow::Error::from)
+    .map_err(anyhow::Error::from);
+
+    telemetry::shutdown();
+
+    result
 }

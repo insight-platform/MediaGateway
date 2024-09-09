@@ -3,6 +3,7 @@
 //! The module provides [`GatewayClientConfiguration`].
 use std::time::Duration;
 
+use savant_core::telemetry::TelemetryConfiguration;
 use savant_core::transport::zeromq::{NonBlockingReader, ReaderConfigBuilder};
 use serde::{Deserialize, Serialize};
 use twelf::{config, Layer};
@@ -43,6 +44,8 @@ pub struct GatewayClientConfiguration {
     pub auth: Option<AuthConfiguration>,
     /// Statistics settings
     pub statistics: Option<StatisticsConfiguration>,
+    /// OpenTelemetry settings
+    pub telemetry: Option<TelemetryConfiguration>,
 }
 
 impl GatewayClientConfiguration {

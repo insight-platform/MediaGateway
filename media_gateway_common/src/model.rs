@@ -2,6 +2,8 @@
 //!
 //! The module provides [`Media`] struct that can be converted from/to
 //! [protocol buffers](https://protobuf.dev/).
+
+use savant_core::otlp::PropagatedContext;
 use savant_protobuf::generated::Message;
 
 /// A struct that contains all information required to forward a message.
@@ -33,6 +35,12 @@ impl Media {
         use prost::Message as ProstMessage;
         let media = Media::decode(bytes)?;
         Ok(media)
+    }
+
+    pub fn update_context(&mut self, ctx: PropagatedContext) {
+        if let Some(message) = self.message.as_mut() {
+            message.propagated_context = ctx.0;
+        }
     }
 }
 

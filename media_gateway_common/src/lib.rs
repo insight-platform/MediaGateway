@@ -8,3 +8,5 @@ pub mod health;
 pub mod api;
 
 pub mod statistics;
+
+pub mod telemetry;

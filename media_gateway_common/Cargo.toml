@@ -17,6 +17,11 @@ anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 actix-web = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-http = { workspace = true }
+http = { workspace = true }
+parking_lot = { workspace = true }
+log = { workspace = true }
 
 prost = "0.12"
 prost-types = "0.12"

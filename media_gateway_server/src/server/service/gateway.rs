@@ -2,6 +2,8 @@ use actix_protobuf::ProtoBuf;
 use actix_web::web::ReqData;
 use actix_web::HttpResponse;
 use log::{debug, error, info};
+use opentelemetry::trace::{Status, TraceContextExt};
+use opentelemetry::Context;
 use savant_core::message::Message;
 use savant_core::transport::zeromq::{SyncWriter, WriterResult};
 
@@ -30,17 +32,23 @@ impl GatewayService {
         media: ProtoBuf<Media>,
         user_data: Option<ReqData<UserData>>,
     ) -> HttpResponse {
+        let ctx = Context::current();
+        let span = ctx.span();
+
         let topic_result = std::str::from_utf8(&media.topic);
         if topic_result.is_err() {
+            span.set_status(Status::error("invalid topic"));
             return HttpResponse::BadRequest().finish();
         }
         let topic = topic_result.unwrap();
 
         if media.message.is_none() {
+            span.set_status(Status::error("no message"));
             return HttpResponse::BadRequest().finish();
         }
         let message_result = Message::try_from(media.message.as_ref().unwrap());
         if message_result.is_err() {
+            span.set_status(Status::error("invalid message"));
             return HttpResponse::BadRequest().finish();
         }
         let id = match self.statistics_service.as_ref() {
@@ -71,6 +79,7 @@ impl GatewayService {
                     .unwrap()
                     .matches(&message.meta().routing_labels)
             {
+                span.set_status(Status::error("forbidden by user allowed routing labels"));
                 return HttpResponse::Unauthorized().finish();
             }
         }
@@ -82,14 +91,26 @@ impl GatewayService {
             .collect::<Vec<&[u8]>>();
 
         let result = self.writer.send_message(topic, &message, &data);
-        let response = match result {
-            Ok(WriterResult::SendTimeout) => HttpResponse::GatewayTimeout().finish(),
-            Ok(WriterResult::AckTimeout(_)) => HttpResponse::BadGateway().finish(),
-            Ok(WriterResult::Ack { .. }) => HttpResponse::Ok().finish(),
-            Ok(WriterResult::Success { .. }) => HttpResponse::Ok().finish(),
+        let (response, status) = match result {
+            Ok(WriterResult::SendTimeout) => (
+                HttpResponse::GatewayTimeout().finish(),
+                Status::error(format!("{:?}", result)),
+            ),
+            Ok(WriterResult::AckTimeout(_)) => (
+                HttpResponse::BadGateway().finish(),
+                Status::error(format!("{:?}", result)),
+            ),
+            Ok(WriterResult::Ack { .. }) => (HttpResponse::Ok().finish(), Status::Ok),
+            Ok(WriterResult::Success { .. }) => (HttpResponse::Ok().finish(), Status::Ok),
             Err(e) => {
                 error!("Failed to send a message: {:?}", e);
-                HttpResponse::InternalServerError().finish()
+                if span.is_recording() {
+                    span.record_error(e.as_ref());
+                }
+                (
+                    HttpResponse::InternalServerError().finish(),
+                    Status::error("store failure"),
+                )
             }
         };
         if let Some(stat_id) = id {
@@ -102,6 +123,7 @@ impl GatewayService {
                 log::warn!("Error while ending message statistics: {:?}", e)
             }
         }
+        span.set_status(status);
         response
     }
 }
